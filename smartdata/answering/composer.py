@@ -21,9 +21,7 @@ _CREDENTIAL_ASSIGNMENT = re.compile(
 )
 _BEARER_TOKEN = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
 _API_KEY_TOKEN = re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b")
-_PEM_MATERIAL = re.compile(
-    r"-----BEGIN [^-\r\n]+-----.*?-----END [^-\r\n]+-----", re.DOTALL
-)
+_PEM_MATERIAL = re.compile(r"-----BEGIN [^-\r\n]+-----.*?-----END [^-\r\n]+-----", re.DOTALL)
 _PRIVATE_COLUMN = re.compile(r"(?i)(connection[_ -]?(string|url)|certificate|tls[_ -]?material)")
 
 
@@ -57,16 +55,13 @@ class AnswerComposer:
 
         safe = result.model_dump(mode="json")
         columns = [name for name in result.columns if not _private_field(name)]
-        rows = [
-            {name: row.get(name) for name in columns}
-            for row in safe["rows"]
-        ]
+        rows = [{name: row.get(name) for name in columns} for row in safe["rows"]]
         numeric = analysis.get("numeric_summary", {})
-        summary = {
-            str(name): values
-            for name, values in numeric.items()
-            if not _private_field(str(name))
-        } if isinstance(numeric, dict) else {}
+        summary = (
+            {str(name): values for name, values in numeric.items() if not _private_field(str(name))}
+            if isinstance(numeric, dict)
+            else {}
+        )
         redactor = SecretRedactor.from_environment()
         safe_question = _safe_text(question, redactor)
         projection = {
@@ -78,23 +73,38 @@ class AnswerComposer:
         }
         # One final scrub also catches credential-shaped values in non-sensitive columns.
         projection = _safe_value(projection, redactor)
-        allowed = _number_tokens(safe_question) | _number_tokens(
-            json.dumps(projection, ensure_ascii=False, default=str)
-        )
+        guard = NumberEvidenceGuard(safe_question, projection)
         try:
             answer = self.model.answer_question(safe_question, projection).strip()
         except Exception as error:  # noqa: BLE001 - an executed query must survive model failures
-            logger.warning("answer model unavailable after successful query: %s", type(error).__name__)
+            logger.warning(
+                "answer model unavailable after successful query: %s", type(error).__name__
+            )
             return fallback
         if not answer:
             return fallback
         answer = _safe_text(answer, redactor)
-        if not _number_tokens(answer).issubset(allowed):
+        if not guard.allows(answer):
             logger.warning("answer model introduced unsupported numeric tokens")
             return fallback
         if result.truncated and not any(term in answer for term in ("截断", "部分", "上限")):
             return fallback
         return AnswerComposition(answer, "model")
+
+
+class NumberEvidenceGuard:
+    """Share the same fail-closed numeric token rule across Ask and diagnosis."""
+
+    def __init__(self, *evidence: Any):
+        self.allowed = set().union(
+            *(
+                _number_tokens(json.dumps(item, ensure_ascii=False, default=str))
+                for item in evidence
+            )
+        )
+
+    def allows(self, answer: str) -> bool:
+        return _number_tokens(answer).issubset(self.allowed)
 
 
 def _number_tokens(value: str) -> set[str]:

@@ -30,11 +30,11 @@ from smartdata.contracts import (
     SortDirection,
     TimeRange,
 )
+from smartdata.contracts.semantic import BusinessObjective, BusinessQuery, SemanticAssetType
 from smartdata.querying.generation.native import GroundedNativeCompiler
 from smartdata.querying.planning.grounded_planner import GroundedQueryPlanner
 from smartdata.querying.validation.native import GroundedNativeQueryValidator, _placeholder_count
 from smartdata.querying.validation.plans import GroundedPlanValidator
-from smartdata.contracts.semantic import BusinessObjective, BusinessQuery, SemanticAssetType
 
 
 def source(driver: str) -> Datasource:

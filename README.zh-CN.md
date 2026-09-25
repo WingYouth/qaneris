@@ -15,36 +15,6 @@ SmartData 是面向企业数据的只读、可治理、可追溯问数系统。�
 
 独立仓库 `JingJIang96200/NLQuery-Test-Dataset` 提供 16 个服务型数据库及容器化 SQLite 的测试数据和 Docker 定义。测试数据齐备不等于这些服务已部署到目标环境，也不等于全部驱动完成真实验收。当前不支持跨数据源 Join。
 
-## 一次运行完成环境准备
-
-首次拿到仓库时运行一次即可把环境配好：
-
-```bash
-python3 setup.py
-```
-
-它会按顺序检查并**自动修复**：缺失的 `uv`、Node 与 Docker，缺失的 `.env` 及其本机密钥，Python 与前端依赖，Neo4j 容器，以及后端与前端服务。其中会自动生成的是本机密钥（Neo4j 容器密码、凭据库主密钥），写入 `.env` 时权限为 600。
-
-只有一项无法代填：**模型端点凭据**。它需要真实可用的 API Key，脚本会在交互式终端里询问你；没有它时问数会返回 `intent_parsing_failed`，但扫描、结构查看与 Web 工作区都照常可用。
-
-每项结果只有三种状态：`可用`、`已修复`、`待处理`。退出码 `0` 表示没有待处理项，`1` 表示有，`2` 表示参数错误。重复运行是幂等的：已经就绪的东西不会再被改动。
-
-服务以脱离终端的子进程启动，`setup.py` 退出后继续运行，日志在 `.tools/logs/`。停止：`pkill -f 'uvicorn smartdata' ; pkill -f 'vite --host'`。
-
-常用参数：
-
-```bash
-python3 setup.py --check          # 只报告，不做任何修改
-python3 setup.py --json           # 机器可读结果
-python3 setup.py --no-start       # 只准备环境，不启动服务
-python3 setup.py --no-prompt      # 不询问模型凭据
-python3 setup.py --no-install-docker   # 不自动安装 Docker
-```
-
-自动安装 Docker 时，macOS 从官方地址下载 Docker Desktop（约 586 MB，支持断点续传，写入 `/Applications`），Linux 运行 Docker 官方脚本（需要 root，必须再加 `--allow-root`）。已安装但守护进程未运行时只提示 `open -a Docker`，不代为启动 GUI。
-
-若 Neo4j 数据卷已存在，其密码在首次初始化时就已固化。脚本检测到端口无服务但数据卷存在时会提示，不会擅自删除你的图数据。
-
 ## 启动 Web 工作区
 
 在仓库根目录准备 Python 3.11+ 虚拟环境和项目依赖，并安装 Node.js/npm。`start-web.sh` 使用根目录的 `.venv/bin/python`；首次运行若缺少前端 `node_modules`，会执行 `npm ci`。

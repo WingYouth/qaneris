@@ -39,36 +39,6 @@ docker compose up --build
 
 For a local process outside Compose, configure `SMARTDATA_NEO4J_URI`, `SMARTDATA_NEO4J_USERNAME`, `SMARTDATA_NEO4J_PASSWORD`, and optionally `SMARTDATA_NEO4J_DATABASE`.
 
-## Prepare the environment
-
-On a fresh checkout, one command prepares everything:
-
-```bash
-python3 setup.py
-```
-
-It checks and **repairs** in order: a missing `uv`, Node or Docker, a missing `.env` and its local keys, the Python and frontend dependency trees, the Neo4j container, and the backend and frontend servers. The keys it generates are local (the Neo4j container password and the credential-store master key) and are written to `.env` with mode 600.
-
-Exactly one thing it cannot fill in: the **model endpoint credential**, which needs a real API key. The script asks for it interactively. Without it, asking a question returns `intent_parsing_failed`, while scanning, schema inventory and the web workspace keep working.
-
-Every check reports `ok`, `fixed` or `blocked`. The exit code is `0` when nothing is blocked, `1` when something is, and `2` for a bad argument. Re-running is idempotent: anything already in place is left alone.
-
-Servers start as detached child processes and keep running after `setup.py` exits; their logs are in `.tools/logs/`. Stop them with `pkill -f 'uvicorn smartdata' ; pkill -f 'vite --host'`.
-
-Common flags:
-
-```bash
-python3 setup.py --check          # report only; change nothing
-python3 setup.py --json           # machine-readable result
-python3 setup.py --no-start       # prepare only; do not start servers
-python3 setup.py --no-prompt      # do not ask for model credentials
-python3 setup.py --no-install-docker   # never install Docker automatically
-```
-
-When installing Docker, macOS downloads the official Docker Desktop DMG (~586 MB, resumable, copied to `/Applications`) and Linux runs Docker's documented script (needs root, so it also requires `--allow-root`). An installed-but-stopped daemon is only reported via `open -a Docker`; the script does not launch a GUI app for you.
-
-If a Neo4j data volume already exists its password was fixed at initialisation. The script reports this instead of silently deleting your graph data.
-
 ## Open the Web workspace
 
 From the repository root, run one command:

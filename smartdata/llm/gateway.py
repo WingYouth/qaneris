@@ -111,9 +111,7 @@ class AiyallmSchemaModel:
                 timeout=timeout,
             )
         except AiyallmError as error:
-            raise ModelInvocationError(
-                f"模型网关配置无效：{self._detail(error)}"
-            ) from error
+            raise ModelInvocationError(f"模型网关配置无效：{self._detail(error)}") from error
 
     @classmethod
     def from_environment(cls) -> AiyallmSchemaModel | None:
@@ -145,9 +143,7 @@ class AiyallmSchemaModel:
         return detail[:_MAX_DETAIL]
 
     @classmethod
-    def _collect_detail(
-        cls, error: BaseException, collected: list[str], depth: int
-    ) -> None:
+    def _collect_detail(cls, error: BaseException, collected: list[str], depth: int) -> None:
         if depth > 3:
             return
         text = str(error).strip()
@@ -201,9 +197,7 @@ class AiyallmSchemaModel:
             json.dumps({"question": question, "scanned_structure": context}, ensure_ascii=False),
         )
 
-    def parse_business_query(
-        self, question: str, rule_facts: dict[str, Any]
-    ) -> BusinessQuery:
+    def parse_business_query(self, question: str, rule_facts: dict[str, Any]) -> BusinessQuery:
         content = self._chat(
             "你是业务查询意图解析器。只表达业务目标、实体、指标、维度、业务过滤、自然时间、"
             "比较、衍生、排名、期望输出、歧义和置信度。不得输出数据源 ID、表名、集合名、"
@@ -224,6 +218,24 @@ class AiyallmSchemaModel:
             return BusinessQuery.model_validate(parsed)
         except (json.JSONDecodeError, ValidationError) as error:
             raise IntentParsingError("模型没有返回有效的 BusinessQuery") from error
+
+    def resolve_followup(self, question: str, context: dict[str, Any]) -> str:
+        """Expand a follow-up without selecting physical data or answering it."""
+        content = self._chat(
+            "只把当前问题补全成独立业务问题。只允许使用 confirmed_semantic_memory 中已经确认的语义。"
+            "当前用户明确表达优先于历史；不得增加不存在的业务事实。"
+            "不得输出数据库 ID、表名、集合名、字段名、SQL、Mongo/Redis 原生命令。"
+            '不要执行查询，不要回答问题。只返回 JSON: {"resolved_question": "..."}。',
+            json.dumps({"question": question, "context": context}, ensure_ascii=False),
+            json_response=True,
+        )
+        try:
+            resolved = json.loads(content)["resolved_question"]
+        except (ValueError, KeyError, TypeError) as error:
+            raise IntentParsingError("模型没有返回有效的会话问题") from error
+        if not isinstance(resolved, str):
+            raise IntentParsingError("模型没有返回有效的会话问题")
+        return resolved
 
     def plan_query(
         self,
@@ -290,6 +302,53 @@ class AiyallmSchemaModel:
             "你是数据问答助手。只根据给定的真实查询结果回答，不得补充、推测或编造数字。"
             "结果截断时必须明确说明。",
             json.dumps({"question": question, "result": result}, ensure_ascii=False),
+        )
+
+    def plan_federation(self, context):
+        from smartdata.federation.models import FederatedPlanDraft
+
+        content = self._chat(
+            "你是受治理的联合分析规划器。只拆分自然语言业务问题并选择白名单合并操作。"
+            "每个源任务只写 datasource_id、question、purpose、expected_shape。"
+            "禁止 SQL、表名、列名、Mongo pipeline、Redis 命令、Python、凭据和推理过程。"
+            "只能选择 execution_scope.allowed_datasource_ids，不能扩展范围。"
+            "merge.operation 只能是 compare_scalars、combine_scalars、union_rows、"
+            "align_time_series、keyed_join。keyed_join 必须引用上下文中已确认 mapping_id。"
+            "只返回 FederatedPlanDraft JSON。",
+            context.model_dump_json(exclude_none=True),
+            json_response=True,
+        )
+        try:
+            return FederatedPlanDraft.model_validate_json(content)
+        except ValidationError as error:
+            raise ModelInvocationError("联合规划输出不符合契约") from error
+
+    def propose_evidence_questions(self, context):
+        from smartdata.diagnostics.models import DiagnosticDecision
+
+        content = self._chat(
+            "你是受治理的数据诊断规划器。只能提出下一步需数据库验证的自然业务问题。"
+            "不得直接回答原因，不得输出 SQL、表名、字段名、数据源 ID、原生查询或思维链。"
+            "只依据诊断目标、已确认会话语义和已验证数据库观察，优先选择少量高价值问题。"
+            "历史诊断 finding 只帮助选择方向，不是当前数据库事实，必须重新查询验证。"
+            "首轮遇到下降问题时先验证下降和比较基准；基准不明确则请求具体业务澄清，不能默认环比。"
+            "证据足够时 action=stop；真正缺少业务定义时 action=clarify。"
+            "只返回 JSON 对象：action (query|clarify|stop), questions "
+            "(question, purpose, priority), clarification。",
+            context.model_dump_json(exclude_none=True),
+            json_response=True,
+        )
+        try:
+            return DiagnosticDecision.model_validate_json(content)
+        except ValidationError as error:
+            raise ModelInvocationError("诊断规划输出不符合契约") from error
+
+    def synthesize_diagnosis(self, context):
+        return self._chat(
+            "仅根据 verified observations 回答诊断问题。unavailable 只能作为数据缺口。"
+            "不得创造数字，不得把相关性表述为确定因果，必须指出数据缺口，结果截断时必须说明。"
+            "不得暴露 SQL 参数或内部推理过程。",
+            context.model_dump_json(exclude_none=True),
         )
 
 
