@@ -1,0 +1,41 @@
+{
+  "datasources": [
+    {
+      "name": "acceptance-mongodb",
+      "kind": "document",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "mongodb",
+        "deployment_mode": "local",
+        "endpoint": {
+          "url": "mongodb://127.0.0.1:27018",
+          "database": "retail"
+        },
+        "authentication": {
+          "method": "none"
+        }
+      }
+    },
+    {
+      "name": "acceptance-couchdb",
+      "kind": "document",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "couchdb",
+        "deployment_mode": "local",
+        "endpoint": {
+          "url": "http://127.0.0.1:5984",
+          "database": "retail"
+        },
+        "authentication": {
+          "method": "password",
+          "username": "admin",
+          "password": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_COUCHDB_PASSWORD"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "datasources": [
+    {
+      "name": "acceptance-cassandra",
+      "kind": "wide_column",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "cassandra",
+        "deployment_mode": "local",
+        "endpoint": {
+          "hosts": [
+            {
+              "host": "127.0.0.1",
+              "port": 9042
+            }
+          ],
+          "namespace": "retail"
+        },
+        "authentication": {
+          "method": "password",
+          "username": "cassandra",
+          "password": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_CASSANDRA_PASSWORD"
+          }
+        }
+      }
+    }
+  ]
+}

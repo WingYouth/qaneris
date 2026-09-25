@@ -1,0 +1,24 @@
+{
+  "datasources": [
+    {
+      "name": "acceptance-timescaledb",
+      "kind": "time_series",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "timescaledb",
+        "deployment_mode": "local",
+        "endpoint": {
+          "url": "postgresql://127.0.0.1:5434/retail"
+        },
+        "authentication": {
+          "method": "password",
+          "username": "readonly",
+          "password": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_TIMESCALEDB_PASSWORD"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "datasources": [
+    {
+      "name": "acceptance-milvus",
+      "kind": "vector",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "milvus",
+        "deployment_mode": "local",
+        "endpoint": {
+          "url": "http://127.0.0.1:19530",
+          "database": "default"
+        },
+        "authentication": {
+          "method": "token",
+          "token": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_MILVUS_TOKEN"
+          }
+        }
+      }
+    }
+  ]
+}

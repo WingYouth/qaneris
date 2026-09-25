@@ -1,0 +1,131 @@
+{
+  "dataset": "sales_2026_07",
+  "description": "SmartData 2026 年 7 月 SQLite 销售标准问答契约",
+  "cases": [
+    {
+      "id": "orders-count",
+      "capability": "count",
+      "supported_now": true,
+      "question": "orders 的总记录数是多少？",
+      "verification_sql": "SELECT COUNT(*) AS count FROM orders",
+      "expected_rows": [{"count": 62}]
+    },
+    {
+      "id": "orders-total",
+      "capability": "sum",
+      "supported_now": true,
+      "question": "orders 中 total_amount 的总额",
+      "verification_sql": "SELECT ROUND(SUM(total_amount), 2) AS total_total_amount FROM orders",
+      "expected_rows": [{"total_total_amount": 312765.9}]
+    },
+    {
+      "id": "orders-average",
+      "capability": "average",
+      "supported_now": true,
+      "question": "orders 中 total_amount 的平均值",
+      "verification_sql": "SELECT ROUND(AVG(total_amount), 2) AS average_total_amount FROM orders",
+      "expected_rows": [{"average_total_amount": 5044.61}]
+    },
+    {
+      "id": "orders-top-five",
+      "capability": "top_n",
+      "supported_now": true,
+      "question": "orders 中 total_amount 最高的前 5 条记录",
+      "verification_sql": "SELECT order_no, ROUND(total_amount, 2) AS total_amount FROM orders ORDER BY total_amount DESC LIMIT 5",
+      "expected_rows": [
+        {"order_no": "SO-202607-0009", "total_amount": 18595.0},
+        {"order_no": "SO-202607-0057", "total_amount": 18595.0},
+        {"order_no": "SO-202607-0033", "total_amount": 18565.1},
+        {"order_no": "SO-202607-0017", "total_amount": 12596.0},
+        {"order_no": "SO-202607-0041", "total_amount": 12596.0}
+      ]
+    },
+    {
+      "id": "orders-maximum",
+      "capability": "maximum",
+      "supported_now": true,
+      "question": "orders 中 total_amount 的最大值",
+      "verification_sql": "SELECT ROUND(MAX(total_amount), 2) AS max_total_amount FROM orders",
+      "expected_rows": [{"max_total_amount": 18595.0}]
+    },
+    {
+      "id": "orders-minimum",
+      "capability": "minimum",
+      "supported_now": true,
+      "question": "orders 中 total_amount 的最小值",
+      "verification_sql": "SELECT ROUND(MIN(total_amount), 2) AS min_total_amount FROM orders",
+      "expected_rows": [{"min_total_amount": 1068.1}]
+    },
+    {
+      "id": "completed-orders-count",
+      "capability": "filter",
+      "supported_now": true,
+      "question": "2026 年 7 月已完成的订单有多少笔？",
+      "verification_sql": "SELECT COUNT(*) AS count FROM orders WHERE status = 'completed' AND order_date BETWEEN '2026-07-01' AND '2026-07-31'",
+      "expected_rows": [{"count": 44}]
+    },
+    {
+      "id": "completed-sales-total",
+      "capability": "filter_and_sum",
+      "supported_now": true,
+      "question": "2026 年 7 月已完成订单的销售总额是多少？",
+      "verification_sql": "SELECT ROUND(SUM(total_amount), 2) AS total_total_amount FROM orders WHERE status = 'completed'",
+      "expected_rows": [{"total_total_amount": 272229.55}]
+    },
+    {
+      "id": "first-five-days-trend",
+      "capability": "time_grouping",
+      "supported_now": true,
+      "question": "2026 年 7 月 1 日到 5 日每天已完成订单的销售额是多少？",
+      "verification_sql": "SELECT order_date, ROUND(SUM(total_amount), 2) AS total_amount FROM orders WHERE status = 'completed' AND order_date BETWEEN '2026-07-01' AND '2026-07-05' GROUP BY order_date ORDER BY order_date",
+      "expected_rows": [
+        {"order_date": "2026-07-01", "total_amount": 11694.0},
+        {"order_date": "2026-07-02", "total_amount": 2995.0},
+        {"order_date": "2026-07-03", "total_amount": 12692.0},
+        {"order_date": "2026-07-04", "total_amount": 4517.1},
+        {"order_date": "2026-07-05", "total_amount": 18595.0}
+      ]
+    },
+    {
+      "id": "category-sales",
+      "capability": "join_and_grouping",
+      "supported_now": true,
+      "question": "已完成订单按商品分类统计销售额，哪个分类最高？",
+      "verification_sql": "SELECT p.category, ROUND(SUM(i.line_amount), 2) AS total_amount FROM order_items AS i JOIN products AS p ON p.id = i.product_id JOIN orders AS o ON o.id = i.order_id WHERE o.status = 'completed' GROUP BY p.category ORDER BY total_amount DESC",
+      "expected_rows": [
+        {"category": "电脑", "total_amount": 185691.55},
+        {"category": "音频", "total_amount": 53589.6},
+        {"category": "配件", "total_amount": 22641.3},
+        {"category": "存储", "total_amount": 10307.1}
+      ]
+    },
+    {
+      "id": "region-sales",
+      "capability": "join_and_grouping",
+      "supported_now": true,
+      "question": "各地区已完成订单的销售额分别是多少？",
+      "verification_sql": "SELECT c.region, ROUND(SUM(o.total_amount), 2) AS total_amount FROM orders AS o JOIN customers AS c ON c.id = o.customer_id WHERE o.status = 'completed' GROUP BY c.region ORDER BY total_amount DESC",
+      "expected_rows": [
+        {"region": "华北", "total_amount": 72714.45},
+        {"region": "西部", "total_amount": 59087.3},
+        {"region": "华东", "total_amount": 57584.4},
+        {"region": "华南", "total_amount": 53837.1},
+        {"region": "华中", "total_amount": 29006.3}
+      ]
+    },
+    {
+      "id": "top-products-by-quantity",
+      "capability": "join_grouping_and_top_n",
+      "supported_now": true,
+      "question": "已完成订单中销量最高的 5 个商品是什么？",
+      "verification_sql": "SELECT p.name, SUM(i.quantity) AS quantity FROM order_items AS i JOIN products AS p ON p.id = i.product_id JOIN orders AS o ON o.id = i.order_id WHERE o.status = 'completed' GROUP BY p.id, p.name ORDER BY quantity DESC, p.name LIMIT 5",
+      "expected_rows": [
+        {"name": "会议麦克风", "quantity": 30},
+        {"name": "商务显示器", "quantity": 26},
+        {"name": "轻薄笔记本", "quantity": 23},
+        {"name": "降噪耳机", "quantity": 21},
+        {"name": "无线键盘", "quantity": 17}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "assets": [
+    {
+      "asset_id": "acceptance.pg.metric.paid_sales",
+      "kind": "metric",
+      "name": "PostgreSQL实收销售额",
+      "description": "PostgreSQL订单实际支付金额",
+      "source": "administrator",
+      "source_ref": "acceptance://postgresql/paid-sales",
+      "status": "published",
+      "datasource_name": "acceptance-postgresql",
+      "data_object_name": "orders",
+      "field_path": "pay_amount"
+    },
+    {
+      "asset_id": "acceptance.mysql.metric.paid_sales",
+      "kind": "metric",
+      "name": "MySQL实收销售额",
+      "description": "MySQL订单实际支付金额",
+      "source": "administrator",
+      "source_ref": "acceptance://mysql/paid-sales",
+      "status": "published",
+      "datasource_name": "acceptance-mysql",
+      "data_object_name": "orders",
+      "field_path": "pay_amount"
+    },
+    {
+      "asset_id": "acceptance.sqlite.metric.paid_sales",
+      "kind": "metric",
+      "name": "SQLite实收销售额",
+      "description": "SQLite订单实际支付金额",
+      "source": "administrator",
+      "source_ref": "acceptance://sqlite/paid-sales",
+      "status": "published",
+      "datasource_name": "acceptance-sqlite",
+      "data_object_name": "orders",
+      "field_path": "pay_amount"
+    },
+    {
+      "asset_id": "acceptance.mongodb.metric.paid_sales",
+      "kind": "metric",
+      "name": "MongoDB实收销售额",
+      "description": "MongoDB订单文档中的实际支付金额",
+      "source": "enterprise_definition",
+      "source_ref": "acceptance://mongodb/paid-sales",
+      "status": "approved",
+      "datasource_name": "acceptance-mongodb",
+      "data_object_name": "orders",
+      "field_path": "pay_amount"
+    },
+    {
+      "asset_id": "acceptance.redis.term.product_cache",
+      "kind": "business_term",
+      "name": "Redis商品缓存",
+      "description": "Redis中保存商品相关信息的Hash键组",
+      "source": "enterprise_definition",
+      "source_ref": "acceptance://redis/product-cache",
+      "status": "published",
+      "datasource_name": "acceptance-redis",
+      "data_object_name": "redis:hash"
+    },
+    {
+      "asset_id": "acceptance.mongodb.suggestion.total_amount",
+      "kind": "metric",
+      "name": "MongoDB模型建议销售总额",
+      "description": "模型根据字段名提出、尚未人工确认的指标",
+      "source": "model_suggestion",
+      "source_ref": "model://acceptance/mongodb/total-amount",
+      "status": "suggested",
+      "confidence": 0.7,
+      "datasource_name": "acceptance-mongodb",
+      "data_object_name": "orders",
+      "field_path": "total_amount"
+    }
+  ]
+}

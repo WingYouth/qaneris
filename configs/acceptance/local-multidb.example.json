@@ -1,0 +1,34 @@
+{
+  "datasources": [
+    {
+      "name": "local-sqlite",
+      "kind": "relational",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "sqlite",
+        "endpoint": {
+          "path": "/absolute/path/to/local.db"
+        }
+      }
+    },
+    {
+      "name": "local-postgresql",
+      "kind": "relational",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "postgresql",
+        "endpoint": {
+          "url": "postgresql://localhost:5432/retail"
+        },
+        "authentication": {
+          "method": "password",
+          "username": "readonly",
+          "password": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_POSTGRES_PASSWORD"
+          }
+        }
+      }
+    }
+  ]
+}

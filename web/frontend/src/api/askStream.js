@@ -1,0 +1,29 @@
+import { ApiError, assertRelativeUrl, errorFromResponse, parseResponseBody } from "./client.js";
+
+export async function streamAskQuestion({ question, workspaceId = "default", datasourceId, onEvent, signal }) {
+  const url = "/api/ask/stream"; assertRelativeUrl(url);
+  let response;
+  try {
+    response = await fetch(url, { method: "POST", signal, headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      body: JSON.stringify({ question, workspace_id: workspaceId, datasource_id: datasourceId || null }) });
+  } catch (cause) { throw new ApiError("Unable to reach the SmartData backend.", { code: "backend_unavailable", cause }); }
+  if (!response.ok) {
+    const { data, isJson } = parseResponseBody(await response.text());
+    throw errorFromResponse(response, data, isJson);
+  }
+  if (!response.headers.get("content-type")?.toLowerCase().startsWith("text/event-stream")) throw new ApiError("Ask stream returned the wrong content type.", { code: "invalid_event_stream", status: response.status });
+  if (!response.body?.getReader) throw new ApiError("Streaming is unavailable in this browser.", { code: "invalid_event_stream" });
+  const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = ""; let previous = 0; let done = false;
+  const consume = (frame) => {
+    if (!frame.trim()) return;
+    let eventName = ""; const dataLines = [];
+    for (const line of frame.split(/\r?\n/)) { if (line.startsWith("event:")) eventName = line.slice(6).trim(); else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart()); }
+    if (!dataLines.length) return;
+    let event; try { event = JSON.parse(dataLines.join("\n")); } catch (cause) { throw new ApiError("Ask stream contained invalid JSON.", { code: "invalid_event_stream", cause }); }
+    if (typeof event.event_type !== "string" || !Number.isInteger(event.sequence) || event.sequence < 1 || !event.payload || Array.isArray(event.payload) || typeof event.payload !== "object" || typeof event.correlation_id !== "string" || !event.correlation_id || eventName !== event.event_type || event.sequence <= previous) throw new ApiError("Ask stream contract is invalid.", { code: "invalid_event_stream" });
+    previous = event.sequence; if (event.event_type === "done") done = true; onEvent?.(event);
+  };
+  while (true) { const { value, done: ended } = await reader.read(); buffer += decoder.decode(value || new Uint8Array(), { stream: !ended }); let split; while ((split = buffer.search(/\r?\n\r?\n/)) >= 0) { const frame = buffer.slice(0, split); const delim = buffer.slice(split).match(/^\r?\n\r?\n/)[0]; buffer = buffer.slice(split + delim.length); consume(frame); } if (ended) break; }
+  if (buffer.trim()) consume(buffer);
+  if (!done) throw new ApiError("Ask stream ended before its done event.", { code: "stream_incomplete" });
+}

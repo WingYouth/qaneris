@@ -1,0 +1,24 @@
+{
+  "datasources": [
+    {
+      "name": "acceptance-clickhouse",
+      "kind": "olap",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "clickhouse",
+        "deployment_mode": "local",
+        "endpoint": {
+          "url": "http://127.0.0.1:8123/retail"
+        },
+        "authentication": {
+          "method": "password",
+          "username": "readonly",
+          "password": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_CLICKHOUSE_PASSWORD"
+          }
+        }
+      }
+    }
+  ]
+}
