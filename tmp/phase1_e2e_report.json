@@ -1,0 +1,33 @@
+[
+  {
+    "code": "A",
+    "title": "Single Metric",
+    "question": "总实收销售额是多少？",
+    "business_query": null,
+    "rule_facts": null,
+    "retrieval_candidates": [],
+    "grounding": null,
+    "grounded_time_dimensions": [],
+    "context_error": null,
+    "status": "aborted",
+    "answer": null,
+    "plan_id": null,
+    "datasource_id": null,
+    "scan_version": null,
+    "command": null,
+    "display_command": null,
+    "parameters": [],
+    "result_rows": [],
+    "row_count": null,
+    "evidence": null,
+    "clarification": [],
+    "join_source": [],
+    "error": {
+      "type": "HTTPStatusError",
+      "message": "Client error '429 Too Many Requests' for url 'https://api-inference.modelscope.cn/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429",
+      "status_code": 429,
+      "body": "{\"error\":{\"message\":\"insufficient balance\",\"request_id\":\"4495d8e3-75d6-4ea9-9864-d8d642c14b03\"}}"
+    },
+    "notes": []
+  }
+]

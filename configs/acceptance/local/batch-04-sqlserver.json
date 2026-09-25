@@ -1,0 +1,24 @@
+{
+  "datasources": [
+    {
+      "name": "acceptance-sqlserver",
+      "kind": "relational",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "sqlserver",
+        "deployment_mode": "local",
+        "endpoint": {
+          "url": "mssql://127.0.0.1:1433/retail?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+        },
+        "authentication": {
+          "method": "password",
+          "username": "readonly",
+          "password": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_SQLSERVER_PASSWORD"
+          }
+        }
+      }
+    }
+  ]
+}

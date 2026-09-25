@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SmartData 只读数据问答工作台">
+  <meta name="theme-color" content="#087e72">
+  <title>SmartData · 数据问答</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#question-panel" aria-label="SmartData 首页">
+        <span class="brand-mark">S</span>
+        <span><strong>SmartData</strong><small>只读数据问答</small></span>
+      </a>
+      <nav aria-label="工作台导航">
+        <a class="nav-item active" href="#question-panel"><span aria-hidden="true">✦</span>智能问数</a>
+        <a class="nav-item" href="#source-panel"><span aria-hidden="true">▱</span>数据源</a>
+      </nav>
+      <div class="sidebar-note">
+        <strong>Default Workspace</strong>
+        <span>单数据源 · SQLite</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">SmartData Workspace</span>
+          <strong>数据问答</strong>
+        </div>
+        <div class="service-state" id="service-state" aria-live="polite">
+          <span class="state-dot" aria-hidden="true"></span>
+          <span>正在连接服务</span>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <section class="question-column" id="question-panel">
+          <div class="section-intro">
+            <div>
+              <h1>从数据中得到一个明确答案</h1>
+              <p>选择数据源，用业务语言提问。查询全程只读，结果附带实际执行计划。</p>
+            </div>
+            <span class="readonly-badge">只读执行</span>
+          </div>
+
+          <section class="card composer" aria-labelledby="question-title">
+            <div class="composer-label" id="question-title">
+              <span class="spark" aria-hidden="true">✦</span>
+              <span>你的问题</span>
+            </div>
+            <textarea id="question" rows="4" aria-label="输入数据问题" placeholder="例如：2026 年 7 月已完成的订单有多少笔？"></textarea>
+            <div class="examples" aria-label="示例问题">
+              <button type="button" data-question="orders 中 total_amount 的总额">订单总额</button>
+              <button type="button" data-question="2026 年 7 月已完成的订单有多少笔？">已完成订单数</button>
+              <button type="button" data-question="2026 年 7 月 1 日到 5 日每天已完成订单的销售额是多少？">每日销售额</button>
+            </div>
+            <div class="composer-actions">
+              <div class="selected-source">
+                <span aria-hidden="true">▱</span>
+                <span>数据源</span>
+                <strong id="active-source">尚未选择</strong>
+              </div>
+              <button class="primary-button" type="button" id="ask">查询数据 <span aria-hidden="true">→</span></button>
+            </div>
+          </section>
+
+          <section class="result-section" id="result-section" aria-live="polite" hidden>
+            <div class="result-summary">
+              <div><span>返回记录</span><strong id="row-count">0</strong></div>
+              <div><span>字段数量</span><strong id="column-count">0</strong></div>
+              <div><span>执行状态</span><strong id="result-status">完成</strong></div>
+            </div>
+            <article class="card answer-card">
+              <header class="card-header">
+                <h2>回答</h2>
+                <span class="result-badge" id="result-badge">查询完成</span>
+              </header>
+              <p class="answer" id="answer"></p>
+              <div class="tabs" role="tablist" aria-label="结果视图">
+                <button type="button" class="tab active" role="tab" aria-selected="true" data-pane="data-pane">数据结果</button>
+                <button type="button" class="tab" role="tab" aria-selected="false" data-pane="plan-pane">查询计划</button>
+              </div>
+              <div class="pane active" id="data-pane" role="tabpanel"><div id="result"></div></div>
+              <div class="pane" id="plan-pane" role="tabpanel"><pre id="plan">—</pre></div>
+            </article>
+          </section>
+        </section>
+
+        <aside class="source-column" id="source-panel">
+          <section class="card source-card">
+            <header class="card-header">
+              <h2>数据源</h2>
+              <span class="count" id="source-count">0</span>
+            </header>
+            <div class="source-list" id="sources"><p class="empty">正在加载数据源…</p></div>
+          </section>
+
+          <section class="card connect-card">
+            <header class="card-header"><h2>连接数据库</h2></header>
+            <div class="form-grid">
+              <label for="name">数据源名称</label>
+              <input id="name" value="sales_2026_07" autocomplete="off">
+              <label for="driver">数据库驱动</label>
+              <select id="driver"><option value="">正在加载…</option></select>
+              <label for="connection">连接配置（JSON）</label>
+              <textarea id="connection" rows="4" spellcheck="false">{}</textarea>
+              <button class="secondary-button" type="button" id="connect">测试连接并添加</button>
+            </div>
+            <p class="form-status" id="form-status" aria-live="polite"></p>
+          </section>
+
+          <section class="card help-card">
+            <h2>可用问法</h2>
+            <ul>
+              <li>记录数、总额、平均值、最大值和最小值</li>
+              <li>金额最高的前 N 条记录</li>
+              <li>订单状态、月份和日期范围过滤</li>
+              <li>按日汇总销售额</li>
+              <li>商品分类、客户地区和商品销量统计</li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

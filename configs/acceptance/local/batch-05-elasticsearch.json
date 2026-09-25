@@ -1,0 +1,24 @@
+{
+  "datasources": [
+    {
+      "name": "acceptance-elasticsearch",
+      "kind": "search",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "elasticsearch",
+        "deployment_mode": "local",
+        "endpoint": {
+          "url": "http://127.0.0.1:9200"
+        },
+        "authentication": {
+          "method": "password",
+          "username": "retail_reader",
+          "password": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_ELASTICSEARCH_PASSWORD"
+          }
+        }
+      }
+    }
+  ]
+}

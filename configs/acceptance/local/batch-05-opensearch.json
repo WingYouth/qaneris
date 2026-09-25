@@ -1,0 +1,31 @@
+{
+  "datasources": [
+    {
+      "name": "acceptance-opensearch",
+      "kind": "search",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "opensearch",
+        "deployment_mode": "local",
+        "endpoint": {
+          "url": "https://127.0.0.1:9201"
+        },
+        "authentication": {
+          "method": "password",
+          "username": "retail_reader",
+          "password": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_OPENSEARCH_PASSWORD"
+          }
+        },
+        "tls": {
+          "enabled": true,
+          "verify_server": false
+        },
+        "options": {
+          "index_pattern": "retail_*"
+        }
+      }
+    }
+  ]
+}

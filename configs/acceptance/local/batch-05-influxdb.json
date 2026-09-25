@@ -1,0 +1,27 @@
+{
+  "datasources": [
+    {
+      "name": "acceptance-influxdb",
+      "kind": "time_series",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "influxdb",
+        "deployment_mode": "local",
+        "endpoint": {
+          "url": "http://127.0.0.1:8086"
+        },
+        "authentication": {
+          "method": "token",
+          "token": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_INFLUXDB_TOKEN"
+          }
+        },
+        "options": {
+          "org": "retail-org",
+          "bucket": "retail-metrics"
+        }
+      }
+    }
+  ]
+}

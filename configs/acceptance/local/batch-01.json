@@ -1,0 +1,77 @@
+{
+  "datasources": [
+    {
+      "name": "batch-01-postgresql",
+      "kind": "relational",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "postgresql",
+        "deployment_mode": "local",
+        "endpoint": {
+          "hosts": [
+            {
+              "host": "127.0.0.1",
+              "port": 5433
+            }
+          ],
+          "database": "retail"
+        },
+        "authentication": {
+          "method": "password",
+          "username": "readonly",
+          "password": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_POSTGRES_PASSWORD"
+          }
+        }
+      }
+    },
+    {
+      "name": "batch-01-mysql",
+      "kind": "relational",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "mysql",
+        "deployment_mode": "local",
+        "endpoint": {
+          "hosts": [
+            {
+              "host": "127.0.0.1",
+              "port": 3307
+            }
+          ],
+          "database": "retail"
+        },
+        "authentication": {
+          "method": "password",
+          "username": "readonly",
+          "password": {
+            "provider": "environment",
+            "identifier": "SMARTDATA_MYSQL_PASSWORD"
+          }
+        }
+      }
+    },
+    {
+      "name": "batch-01-redis",
+      "kind": "key_value",
+      "workspace_id": "default",
+      "connection_profile": {
+        "driver": "redis",
+        "deployment_mode": "local",
+        "endpoint": {
+          "hosts": [
+            {
+              "host": "127.0.0.1",
+              "port": 6380
+            }
+          ],
+          "database": "0"
+        },
+        "authentication": {
+          "method": "none"
+        }
+      }
+    }
+  ]
+}
