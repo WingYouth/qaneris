@@ -161,7 +161,7 @@ RS-WEB-01 已完成智能问数、Clarification、Result Table、Execution Trace
 
 RS-VIZ-01 已实现：`Typed Result → deterministic Chart Policy → controlled ChartSpec → React SVG`。图表只消费现有 Ask View 的 table、plan、evidence；自动选择折线图/柱状图/表格，饼图需用户选择且数据满足约束。表格和 Evidence 始终可查看；不执行任意 JS/HTML，也不执行模型生成的可执行可视化配置。
 
-当前 Web workspace 在 `web/frontend/`，由 React 19/Vite 构建；生产 FastAPI 优先服务 `web/frontend/dist/index.html` 与 `/assets/*`，没有构建产物时仅本地开发可回退 legacy `web/index.html`。正式一级导航为“智能问数 / 数据源 / Excel 导入”，默认进入智能问数。Ask 只调用 `POST /api/ask/stream` 一次，trace 只显示公开事件摘要与 `display_command`，不显示 raw payload 或参数；Clarification/error/result 从同一终态事件投影。安全数据源仅调用 `/api/datasources/secure`、test/update/scan/inspect/delete 生命周期，旧 `/api/datasources` 创建入口只保留兼容。TLS 控件消费 `GET /api/tls-capabilities`，秘密上传后只保留 SecretReference，绝不持久化在浏览器存储。
+当前 Web workspace 在 `web/frontend/`，由 React 19/Vite 构建；生产 FastAPI 优先服务 `web/frontend/dist/index.html` 与 `/assets/*`。正式一级导航为“智能问数 / 数据源 / Excel 导入”，默认进入智能问数。Analyze 主路径是 Conversation → Run → `GET /api/runs/{run_id}/stream?after_sequence=N` → 每轮自己的结果、图表与依据。Conversation 的数据源范围创建后固定；断线仅续订同一个 Run；刷新从 URL 中的 Conversation ID 恢复消息及最近 Run。历史结果按需读取，澄清、取消、重试均操作同一 Run。Run Timeline 只显示公开事件白名单，不显示私有推理或原始 payload；查询文本只显示安全的 `evidence.display_command`。`POST /api/ask` 和 `POST /api/ask/stream` 保留给旧客户端、CLI、MCP 与 Skill。安全数据源仅调用 `/api/datasources/secure`、test/update/scan/inspect/delete 生命周期，旧 `/api/datasources` 创建入口只保留兼容。TLS 控件消费 `GET /api/tls-capabilities`，秘密上传后只保留 SecretReference，绝不持久化在浏览器存储。
 
 构建和回归命令：`cd web/frontend && npm ci && npm test && npm run build`。Docker 使用 Node 22 multi-stage 构建 React dist，再复制到 Python runtime，不携带 node_modules。
 
