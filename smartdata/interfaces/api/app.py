@@ -26,6 +26,7 @@ from smartdata.contracts import (
 )
 from smartdata.ingestion.excel import ExcelImportRequest, ExcelIngestionError
 from smartdata.interfaces.api.ask_stream import SSE_HEADERS, stream_ask_events
+from smartdata.interfaces.api.conversations import register_conversation_routes
 from smartdata.interfaces.api.credentials import register_credential_routes
 from smartdata.interfaces.api.datasources import register_datasource_routes
 from smartdata.interfaces.api.excel import (
@@ -196,6 +197,7 @@ def create_app(database_path: str | None = None) -> FastAPI:
     # route does and call only its public managed-secret methods.
     register_credential_routes(app)
     register_datasource_routes(app)
+    register_conversation_routes(app, service, path)
 
     @app.get("/", include_in_schema=False)
     def index():

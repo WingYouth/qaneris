@@ -225,6 +225,24 @@ class AiyallmSchemaModel:
         except (json.JSONDecodeError, ValidationError) as error:
             raise IntentParsingError("模型没有返回有效的 BusinessQuery") from error
 
+    def resolve_followup(self, question: str, context: dict[str, Any]) -> str:
+        """Expand a follow-up without selecting physical data or answering it."""
+        content = self._chat(
+            "只把当前问题补全成独立业务问题。只允许使用 confirmed_semantic_memory 中已经确认的语义。"
+            "当前用户明确表达优先于历史；不得增加不存在的业务事实。"
+            "不得输出数据库 ID、表名、集合名、字段名、SQL、Mongo/Redis 原生命令。"
+            "不要执行查询，不要回答问题。只返回 JSON: {\"resolved_question\": \"...\"}。",
+            json.dumps({"question": question, "context": context}, ensure_ascii=False),
+            json_response=True,
+        )
+        try:
+            resolved = json.loads(content)["resolved_question"]
+        except (ValueError, KeyError, TypeError) as error:
+            raise IntentParsingError("模型没有返回有效的会话问题") from error
+        if not isinstance(resolved, str):
+            raise IntentParsingError("模型没有返回有效的会话问题")
+        return resolved
+
     def plan_query(
         self,
         question: str,
