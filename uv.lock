@@ -2318,11 +2318,7 @@ wheels = [
 
 [[package]]
 name = "pyopenssl"
-<<<<<<< HEAD
-version = "26.4.0"
-=======
 version = "26.2.0"
->>>>>>> origin/main
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
@@ -2712,19 +2708,13 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiyallm" },
-<<<<<<< HEAD
-=======
     { name = "cryptography" },
->>>>>>> origin/main
     { name = "fastapi" },
     { name = "httpx" },
     { name = "mcp" },
     { name = "openpyxl" },
     { name = "pydantic" },
-<<<<<<< HEAD
-=======
     { name = "pymongo" },
->>>>>>> origin/main
     { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "uvicorn", extra = ["standard"] },
@@ -2779,10 +2769,7 @@ requires-dist = [
     { name = "aiyallm", specifier = ">=0.1.3" },
     { name = "cassandra-driver", marker = "extra == 'cassandra'", specifier = ">=3.29,<4" },
     { name = "clickhouse-connect", marker = "extra == 'sql'", specifier = ">=0.8,<1" },
-<<<<<<< HEAD
-=======
     { name = "cryptography", specifier = ">=43,<48" },
->>>>>>> origin/main
     { name = "elasticsearch", marker = "extra == 'search'", specifier = ">=8,<10" },
     { name = "fastapi", specifier = ">=0.115,<1" },
     { name = "happybase", marker = "extra == 'hbase'", specifier = ">=1.2,<2" },

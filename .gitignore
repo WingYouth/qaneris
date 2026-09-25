@@ -17,3 +17,6 @@ examples/*.db
 profiles_acceptance
 scan_reports/
 .workbuddy/
+
+# Runtime downloaded by setup.py; never committed.
+.tools/
