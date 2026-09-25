@@ -30,7 +30,7 @@ class Run(BaseModel):
     user_message_id: str
     workspace_id: str
     status: RunStatus = RunStatus.CREATED
-    run_kind: Literal["normal", "diagnostic"] = "normal"
+    run_kind: Literal["normal", "diagnostic", "federated"] = "normal"
     current_stage: str = "created"
     revision: int = 0
     attempt: int = 1

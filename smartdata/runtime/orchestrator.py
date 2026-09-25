@@ -15,6 +15,10 @@ from smartdata.conversation.ports import ConversationRepository
 from smartdata.conversation.service import ConversationService
 from smartdata.diagnostics.coordinator import DiagnosticCoordinator, DiagnosticFailure
 from smartdata.diagnostics.repository import SQLiteDiagnosticRepository
+from smartdata.federation.coordinator import FederatedQuestionCapability
+from smartdata.federation.governance import FederationFailure
+from smartdata.federation.repository import SQLiteFederationRepository
+from smartdata.federation.router import FederationRouter, ready_scope
 from smartdata.runtime.models import Run, RunStatus
 from smartdata.runtime.ports import RunRepository, RunScheduler
 from smartdata.runtime.state_machine import transition
@@ -47,6 +51,9 @@ class RunOrchestrator:
         scheduler: RunScheduler,
         diagnostic_model=None,
         diagnostic_repository=None,
+        federation_service=None,
+        federation_repository=None,
+        federation_model=None,
     ):
         self.conversations = conversations
         self.runs = runs
@@ -66,6 +73,14 @@ class RunOrchestrator:
         )
         repository = diagnostic_repository or SQLiteDiagnosticRepository(runs.path)
         self.diagnostics = DiagnosticCoordinator(self, repository, model)
+        self.federation_service = federation_service
+        self.federation_router = FederationRouter(federation_service) if federation_service else None
+        self.federation = FederatedQuestionCapability(
+            self,
+            federation_repository or SQLiteFederationRepository(runs.path),
+            federation_service,
+            federation_model if federation_model is not None else resolver.model,
+        )
         self.runs.recover_interrupted()
         self._recover_completions()
         self._recover_clarifications()
@@ -75,6 +90,20 @@ class RunOrchestrator:
     def _recover_completions(self) -> None:
         for run in self.runs.incomplete_completions():
             if run.response_json is None:
+                continue
+            if run.run_kind == "federated":
+                self.messages.assistant_message(
+                    run.conversation_id, run.response_json["answer"], run.run_id
+                )
+                plan = self.federation.repository.plan(run.run_id)
+                memory = self.conversations.memory(run.conversation_id)
+                if plan and memory.last_run_id != run.run_id:
+                    from smartdata.federation.models import MergedResult
+                    self.federation._record_memory(
+                        run, plan,
+                        MergedResult.model_validate(run.response_json["merged_result"]), memory,
+                    )
+                self.runs.append_event(run.run_id, "RUN_COMPLETED", {})
                 continue
             response = AskResponse.model_validate(run.response_json)
             self.messages.assistant_message(run.conversation_id, response.answer, run.run_id)
@@ -105,6 +134,13 @@ class RunOrchestrator:
     def _recover_clarifications(self) -> None:
         for run in self.runs.incomplete_clarifications():
             if run.response_json is None:
+                continue
+            if run.run_kind == "federated":
+                self.messages.assistant_message(
+                    run.conversation_id, run.response_json["clarification"], run.run_id,
+                    kind="clarification", checkpoint_revision=run.revision,
+                )
+                self.runs.append_event(run.run_id, "CLARIFICATION_REQUIRED", {})
                 continue
             response = AskResponse.model_validate(run.response_json)
             clarification = (
@@ -232,6 +268,8 @@ class RunOrchestrator:
                 }
                 or isinstance(error, DiagnosticFailure)
                 and error.blocked
+                or isinstance(error, FederationFailure)
+                and error.blocked
             )
             retryable = (
                 code
@@ -246,9 +284,15 @@ class RunOrchestrator:
                 }
                 or isinstance(error, DiagnosticFailure)
                 and error.retryable
+                or isinstance(error, FederationFailure)
+                and error.retryable
             )
             target = RunStatus.BLOCKED if blocked else RunStatus.FAILED
             message = safe_error(error)[:240] if isinstance(error, SmartDataError) else code
+            if code == "unconfirmed_mapping":
+                message = "当前数据对象没有已确认的跨数据源关联键，不会根据同名字段自动关联。"
+            elif code == "stale_join_mapping":
+                message = "跨数据源关联键绑定的扫描版本已变化，请重新确认映射。"
             current = self._save(
                 transition(
                     current,
@@ -269,8 +313,6 @@ class RunOrchestrator:
         if self._cancel_if_requested(run):
             return
         conversation = self.conversations.get(run.conversation_id)
-        if len(conversation.datasource_scope) > 1:
-            raise RuntimeError("multi_source_scope_requires_iq05")
         messages = self.conversations.messages(run.conversation_id)
         original = next(item.content for item in messages if item.message_id == run.user_message_id)
         clarifications = [
@@ -291,7 +333,10 @@ class RunOrchestrator:
             run.model_copy(
                 update={
                     "resolved_question": resolved,
-                    "run_kind": "diagnostic" if diagnostic else "normal",
+                    "run_kind": (
+                        "diagnostic" if diagnostic else
+                        "federated" if run.run_kind == "federated" else "normal"
+                    ),
                 }
             )
         )
@@ -300,14 +345,35 @@ class RunOrchestrator:
             return
         run = self._save(transition(run, RunStatus.DISCOVERING))
         if diagnostic:
+            if len(conversation.datasource_scope) > 1:
+                raise FederationFailure("diagnostic_requires_single_source", blocked=True)
             self.diagnostics.drive(run, conversation, resolved, memory, clarifications)
             return
+        selected_datasource = (
+            conversation.datasource_scope[0] if len(conversation.datasource_scope) == 1 else None
+        )
+        if self.federation_router and (len(conversation.datasource_scope) != 1 or
+                                       run.run_kind == "federated"):
+            allowed = ready_scope(
+                self.federation_service, conversation.workspace_id,
+                conversation.datasource_scope,
+            )
+            if run.run_kind == "federated" and self.federation.repository.plan(run.run_id):
+                from smartdata.federation.router import RoutingDecision
+                decision = RoutingDecision("federated", {}, [])
+            else:
+                decision = self.federation_router.route(resolved, conversation.workspace_id, allowed)
+            if decision.kind == "federated":
+                run = self._save(run.model_copy(update={"run_kind": "federated"}))
+                self.federation.drive(run, resolved, memory, allowed, decision, clarifications)
+                return
+            selected_datasource = decision.single_datasource_id
+        elif len(conversation.datasource_scope) > 1:
+            raise RuntimeError("multi_source_scope_requires_iq05")
         request = AskRequest(
             question=resolved,
             workspace_id=conversation.workspace_id,
-            datasource_id=(
-                conversation.datasource_scope[0] if conversation.datasource_scope else None
-            ),
+            datasource_id=selected_datasource,
             max_rows=run.max_rows,
         )
         response: AskResponse | None = None

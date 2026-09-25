@@ -304,6 +304,25 @@ class AiyallmSchemaModel:
             json.dumps({"question": question, "result": result}, ensure_ascii=False),
         )
 
+    def plan_federation(self, context):
+        from smartdata.federation.models import FederatedPlanDraft
+
+        content = self._chat(
+            "你是受治理的联合分析规划器。只拆分自然语言业务问题并选择白名单合并操作。"
+            "每个源任务只写 datasource_id、question、purpose、expected_shape。"
+            "禁止 SQL、表名、列名、Mongo pipeline、Redis 命令、Python、凭据和推理过程。"
+            "只能选择 execution_scope.allowed_datasource_ids，不能扩展范围。"
+            "merge.operation 只能是 compare_scalars、combine_scalars、union_rows、"
+            "align_time_series、keyed_join。keyed_join 必须引用上下文中已确认 mapping_id。"
+            "只返回 FederatedPlanDraft JSON。",
+            context.model_dump_json(exclude_none=True),
+            json_response=True,
+        )
+        try:
+            return FederatedPlanDraft.model_validate_json(content)
+        except ValidationError as error:
+            raise ModelInvocationError("联合规划输出不符合契约") from error
+
     def propose_evidence_questions(self, context):
         from smartdata.diagnostics.models import DiagnosticDecision
 

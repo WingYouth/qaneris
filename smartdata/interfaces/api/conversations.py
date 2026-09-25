@@ -36,6 +36,27 @@ class ClarificationReply(BaseModel):
     answer: str = Field(min_length=1)
 
 
+class JoinMappingCreate(BaseModel):
+    workspace_id: str = "default"
+    business_key: str
+    left_datasource_id: str
+    left_data_object_id: str
+    left_field_path: str
+    left_grain: str
+    right_datasource_id: str
+    right_data_object_id: str
+    right_field_path: str
+    right_grain: str
+    cardinality: str
+    null_policy: str
+    source: str = "manual"
+    confidence: float = Field(default=1.0, ge=0, le=1)
+
+
+class JoinMappingConfirm(BaseModel):
+    confirmed_by: str = Field(min_length=1)
+
+
 def register_conversation_routes(
     app: FastAPI, service: SmartDataService, database_path: str
 ) -> RunOrchestrator:
@@ -48,6 +69,7 @@ def register_conversation_routes(
         ServiceAskCapability(service),
         ConversationContextResolver(getattr(service, "model", None)),
         ThreadRunScheduler(),
+        federation_service=service,
     )
     app.state.conversation_service = conversation_service
     app.state.run_orchestrator = runtime
@@ -77,7 +99,38 @@ def register_conversation_routes(
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str):
-        return runs.get(run_id)
+        run = runs.get(run_id)
+        if run.run_kind != "federated":
+            return run
+        payload = run.model_dump(mode="json")
+        plan = runtime.federation.repository.plan(run_id)
+        if plan:
+            payload["federated_plan"] = {
+                "plan_id": plan.plan_id,
+                "merge_operation": plan.merge_plan.operation,
+                "datasource_ids": [task.datasource_id for task in plan.source_tasks],
+            }
+            payload["source_tasks"] = [{
+                "task_id": task.task_id, "datasource_id": task.datasource_id,
+                "status": task.status, "attempt": task.attempt,
+            } for task in runtime.federation.repository.tasks(run_id)]
+        return payload
+
+    @app.get("/api/join-mappings")
+    def list_join_mappings(workspace_id: str = Query("default")):
+        return runtime.federation.repository.mappings(workspace_id)
+
+    @app.post("/api/join-mappings", status_code=201)
+    def create_join_mapping(body: JoinMappingCreate):
+        return runtime.federation.governance.create(**body.model_dump())
+
+    @app.post("/api/join-mappings/{mapping_id}/confirm")
+    def confirm_join_mapping(mapping_id: str, body: JoinMappingConfirm):
+        return runtime.federation.governance.confirm(mapping_id, body.confirmed_by)
+
+    @app.post("/api/join-mappings/{mapping_id}/reject")
+    def reject_join_mapping(mapping_id: str):
+        return runtime.federation.governance.reject(mapping_id)
 
     @app.get("/api/runs/{run_id}/stream")
     async def stream_run(
