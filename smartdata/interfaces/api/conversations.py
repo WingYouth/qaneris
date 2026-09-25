@@ -157,7 +157,15 @@ def register_conversation_routes(
                         f"id: {event.sequence}\nevent: {event.event_type}\n"
                         f"data: {json.dumps(event.model_dump(mode='json'), ensure_ascii=False)}\n\n"
                     )
-                status = (await asyncio.to_thread(runs.get, run_id)).status
+                current = await asyncio.to_thread(runs.get, run_id)
+                status = current.status
+                # Clarification and retry keep the same run id. A queued resume still
+                # carries the previous settled status until its worker starts.
+                if (status == RunStatus.FAILED and current.current_stage == "retry_queued") or (
+                    status == RunStatus.WAITING_USER and current.current_stage == "resume_queued"
+                ):
+                    await asyncio.sleep(0.1)
+                    continue
                 if status in {
                     RunStatus.COMPLETED,
                     RunStatus.FAILED,

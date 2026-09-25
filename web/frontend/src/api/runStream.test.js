@@ -26,6 +26,13 @@ test("starts from requested sequence and accepts each settled outcome", async ()
   }
 });
 
+test("an older failed attempt does not settle a retried run", async () => {
+  const seen = [];
+  globalThis.fetch = async () => response([event(1, "RUN_FAILED"), event(2, "RUN_STARTED"), event(3, "RUN_COMPLETED")]);
+  await subscribeRunEvents({ runId: "r", onEvent: (item) => seen.push(item.event_type), maxReconnects: 0 });
+  assert.deepEqual(seen, ["RUN_FAILED", "RUN_STARTED", "RUN_COMPLETED"]);
+});
+
 test("rejects duplicate, out-of-order, malformed JSON, and wrong content type", async () => {
   for (const items of [[event(1), event(1)], [event(2), event(1)]]) {
     globalThis.fetch = async () => response(items);
