@@ -10,7 +10,7 @@ SmartData is a read-only, governed business data question-answering system. Natu
 - The adapter registry contains 21 drivers. Registration is not the same as real-environment acceptance.
 - FastAPI exposes `POST /api/ask`; the MCP server exposes `ask_data`.
 - The unified CLI provides `ask`, `doctor`, acceptance, source lifecycle, credential, and certificate commands.
-- `web/frontend/` contains the React Roadshow workspace, including Ask streaming, datasource and Excel flows, and controlled result charts.
+- `web/frontend/` contains the React workspace. Analyze uses durable Conversations and Runs with resumable SSE, per-message results, evidence, and controlled charts. Datasource and Excel flows remain available.
 - For an already scanned selected datasource, Ask can answer schema inventory questions such as “what tables are in this database?” from its published Neo4j structure. This returns tables and fields, not table rows. A configured model also summarizes the bounded structure; the inventory remains available if that summary fails.
 - Result visualization and managed credential/certificate upload are implemented. Real infrastructure acceptance and remaining external-service limits are tracked in the [RS-VIZ-02 acceptance record](docs/rs-viz-02-acceptance.md) and development roadmap.
 
@@ -77,7 +77,7 @@ From the repository root, run one command:
 ./start-web.sh
 ```
 
-The script loads the local `.env` when present, starts FastAPI and Vite on `127.0.0.1:8000` and `127.0.0.1:5173`, waits for both services, and opens the browser. Press Ctrl+C to stop the processes it started. Asking questions requires a reachable Neo4j and model service.
+The script loads the local `.env` when present, starts FastAPI and Vite on `127.0.0.1:8000` and `127.0.0.1:5173`, waits for both services, and opens the browser. Press Ctrl+C to stop the processes it started. Asking questions requires a reachable Neo4j and model service. Analyze creates a Conversation with a fixed datasource scope, submits each question as a Run, and observes `GET /api/runs/{run_id}/stream?after_sequence=N`. Reopening a Conversation restores messages and the latest Run without executing the query again. Older results load on demand. `POST /api/ask` and `POST /api/ask/stream` remain available for legacy clients, CLI, MCP, and Skill.
 
 Datasource records and connection profiles are stored in the SQLite catalog selected by `SMARTDATA_CATALOG` (default: `smartdata.db` in the process working directory). Uploaded Excel data is stored in the server artifact directory; managed credentials are stored separately under `SMARTDATA_SECRET_STORE_DIR`. The datasource page can check a saved connection without changing its scan state. A successful scan records metadata, but does not guarantee that the source is still reachable later.
 
@@ -105,4 +105,4 @@ pytest
 ruff check .
 ```
 
-Cross-source joins are not supported. New product surfaces must not bypass grounding, validation, revision fencing, or read-only execution.
+Federated analytics supports governed merge operations and confirmed cross-source key mappings. New product surfaces must not bypass grounding, validation, revision fencing, or read-only execution.
