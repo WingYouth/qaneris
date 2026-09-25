@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 import pytest
 from _neo4j_fake import FakeNeo4jDriver, graph_reader, graph_store
 
-from smartdata.common.errors import GraphUnavailableError
-from smartdata.contracts import DatasetInfo, Datasource, FieldInfo, RelationInfo
-from smartdata.graph import GraphBindingReference, GraphStructureRequest
-from smartdata.graph.neo4j import unavailable_driver_exceptions
-from smartdata.scan import ScanGraphBuilder
+from qaneris.common.errors import GraphUnavailableError
+from qaneris.contracts import DatasetInfo, Datasource, FieldInfo, RelationInfo
+from qaneris.graph import GraphBindingReference, GraphStructureRequest
+from qaneris.graph.neo4j import unavailable_driver_exceptions
+from qaneris.scan import ScanGraphBuilder
 
 
 def datasource(datasource_id: str = "sales", workspace_id: str = "default") -> Datasource:

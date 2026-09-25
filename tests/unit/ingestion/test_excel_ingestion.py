@@ -25,16 +25,16 @@ from typing import Any
 import pytest
 from openpyxl import Workbook
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.common.errors import GraphUnavailableError, QuerySafetyError
-from smartdata.graph import (
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.common.errors import GraphUnavailableError, QuerySafetyError
+from qaneris.graph import (
     GraphDatasource,
     GraphStructure,
     GraphStructureRequest,
     NullGraphReader,
 )
-from smartdata.ingestion.excel import (
+from qaneris.ingestion.excel import (
     DEFAULT_EXCEL_POLICY,
     ColumnPlan,
     ExcelErrorCode,
@@ -54,7 +54,7 @@ from smartdata.ingestion.excel import (
     read_container,
     validate_workbook,
 )
-from smartdata.ingestion.excel.types import CellKind, ColumnType, UnsupportedCellValue
+from qaneris.ingestion.excel.types import CellKind, ColumnType, UnsupportedCellValue
 
 # --------------------------------------------------------------------------------------------
 # helpers
@@ -161,7 +161,7 @@ def naive_datetime(
     return dt.datetime.combine(dt.date(year, month, day), dt.time(hour, minute, second))
 
 
-def ingestion(tmp_path: Path, application: SmartDataService, **changes) -> ExcelIngestionService:
+def ingestion(tmp_path: Path, application: QanerisService, **changes) -> ExcelIngestionService:
     return ExcelIngestionService(
         application,
         policy=changes.pop("policy", None),
@@ -175,14 +175,14 @@ def application(
     catalog_name: str = "catalog.db",
     graph: Any = None,
     reader: Any = None,
-) -> SmartDataService:
+) -> QanerisService:
     """A service wired to ``graph`` for publishing and ``reader`` for verification.
 
     ``graph=None`` keeps the compatibility no-op backend, which is exactly the "no verifiable
     publication" case the READY contract has to refuse. Passing a separate ``reader`` covers a store
     that publishes while the read side cannot confirm it.
     """
-    return SmartDataService(
+    return QanerisService(
         Catalog(tmp_path / catalog_name),
         graph_store=graph,
         graph_reader=reader if reader is not None else graph,
@@ -207,8 +207,8 @@ def import_workbook(
     policy: ExcelIngestionPolicy | None = None,
     filename: str = "orders.xlsx",
     datasource_name: str | None = None,
-    app: SmartDataService | None = None,
-) -> tuple[Any, Path, SmartDataService]:
+    app: QanerisService | None = None,
+) -> tuple[Any, Path, QanerisService]:
     source = write_source(tmp_path, data, filename)
     service = app or application(tmp_path, graph=FakeGraph())
     service_ingestion = ingestion(tmp_path, service, policy=policy)
@@ -437,7 +437,7 @@ def test_header_length_limit() -> None:
 
 def test_header_cannot_contain_nul() -> None:
     """OOXML cannot carry a NUL, so the guard is exercised at the rule boundary directly."""
-    from smartdata.ingestion.excel.validator import _parse_header, _StoredCell, _table_name
+    from qaneris.ingestion.excel.validator import _parse_header, _StoredCell, _table_name
 
     header, error = _parse_header(
         [_StoredCell(column=1, value="or\x00der_id", data_type="s", number_format=None)],
@@ -544,7 +544,7 @@ def test_classify_rejects_complex_values(value: Any) -> None:
     ],
 )
 def test_format_has_time(number_format: str | None, expected: bool) -> None:
-    from smartdata.ingestion.excel.types import format_has_time
+    from qaneris.ingestion.excel.types import format_has_time
 
     assert format_has_time(number_format) is expected
 
@@ -568,7 +568,7 @@ def test_format_has_time(number_format: str | None, expected: bool) -> None:
     ],
 )
 def test_widening_table(left, right, expected) -> None:
-    from smartdata.ingestion.excel.types import widen
+    from qaneris.ingestion.excel.types import widen
 
     assert widen(left, right) == expected
     assert widen(right, left) == expected
@@ -1082,7 +1082,7 @@ def test_the_original_filename_is_never_a_directory_name(tmp_path) -> None:
 
 def test_sqlite_adapter_reads_the_materialized_file_read_only(tmp_path) -> None:
     """The finalized artifact is consumed only through the existing SQLite adapter."""
-    from smartdata.adapters.relational.sqlite import SQLiteAdapter
+    from qaneris.adapters.relational.sqlite import SQLiteAdapter
 
     result, _, _ = import_workbook(tmp_path, build_workbook({"orders": simple_rows()}))
     adapter = SQLiteAdapter("ds_excel", {"driver": "sqlite", "path": result.sqlite_path})
@@ -1354,12 +1354,12 @@ def test_a_changed_limit_changes_the_artifact_identity_without_a_version_bump(tm
 
 
 def test_service_facade_is_the_only_entry_point(tmp_path, monkeypatch) -> None:
-    """``SmartDataService.import_excel`` must work end to end, not just the service class.
+    """``QanerisService.import_excel`` must work end to end, not just the service class.
 
     The ingestion service is constructed lazily, so the facade has to hold and reuse exactly one
     instance; a missing attribute here would only surface through this entry point.
     """
-    monkeypatch.setenv("SMARTDATA_ARTIFACT_ROOT", str(tmp_path / "artifacts"))
+    monkeypatch.setenv("QANERIS_ARTIFACT_ROOT", str(tmp_path / "artifacts"))
     source = write_source(tmp_path, build_workbook({"orders": simple_rows()}))
     service = application(tmp_path, graph=FakeGraph())
 

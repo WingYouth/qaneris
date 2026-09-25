@@ -40,8 +40,8 @@ The existing local `sales` catalog source refused execution due to a missing sca
 
 ## Tests and regression
 
-- Frontend: `npm test` — 60 passed; `npm run build` — passed.
-- Backend: `SMARTDATA_ARTIFACT_ROOT=/private/tmp/smartdata-iq06-artifacts .venv/bin/pytest -q` — 1588 passed, 3 skipped. The artifact override is needed because the default external upload directory is outside the writable sandbox.
+- Frontend: `npm test` — 59 passed; `npm run build` — passed.
+- Backend: `QANERIS_ARTIFACT_ROOT=/private/tmp/qaneris-iq06-artifacts .venv/bin/pytest -q` — 1587 passed, 3 skipped. The artifact override is needed because the default external upload directory is outside the writable sandbox.
 - `ruff check .` and `git diff --check` — passed.
 - The full backend suite covers IQ-01 through IQ-05, legacy Ask API, CLI, MCP, Excel, and datasource behavior. The only backend production change is the queued retry/clarification SSE contract fix.
 

@@ -1,6 +1,6 @@
 """Intent parsing through the model port.
 
-The BusinessQuery contract, its JSON schema, parsing and validation all belong to SmartData, so
+The BusinessQuery contract, its JSON schema, parsing and validation all belong to Qaneris, so
 these tests exercise them through the gateway while mocking only the aiyallm boundary.
 """
 
@@ -11,8 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from smartdata.common.errors import IntentParsingError
-from smartdata.llm.gateway import AiyallmSchemaModel
+from qaneris.common.errors import IntentParsingError
+from qaneris.llm.gateway import AiyallmSchemaModel
 
 
 class FakeChatClient:
@@ -47,7 +47,7 @@ def test_gateway_parses_schema_constrained_business_query() -> None:
 
     assert query.metrics == ["销售额"]
     assert query.time_expression == "今年"
-    # The prompt carries SmartData's own schema, built from the SmartData contract; aiyallm only
+    # The prompt carries Qaneris's own schema, built from the Qaneris contract; aiyallm only
     # transports it.
     payload = json.loads(client.calls[0]["messages"][1]["content"])
     assert "business_query_schema" in payload

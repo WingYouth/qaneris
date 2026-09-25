@@ -26,21 +26,21 @@ from typing import Any, ClassVar
 
 import pytest
 
-from smartdata.adapters.base import DataSourceAdapter
-from smartdata.adapters.registry import register_adapter
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.common.errors import (
+from qaneris.adapters.base import DataSourceAdapter
+from qaneris.adapters.registry import register_adapter
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.common.errors import (
     DatasourceConnectionTestError,
     DatasourceDeleteError,
     DatasourceNotFoundError,
     DatasourceSecureProfileRequiredError,
     DatasourceUpdateError,
 )
-from smartdata.connections.credential_service import CredentialService
-from smartdata.connections.managed_store import ManagedCredentialStore
-from smartdata.connections.secrets import ManagedSecretProvider, SecretResolver
-from smartdata.contracts import (
+from qaneris.connections.credential_service import CredentialService
+from qaneris.connections.managed_store import ManagedCredentialStore
+from qaneris.connections.secrets import ManagedSecretProvider, SecretResolver
+from qaneris.contracts import (
     AuthenticationConfig,
     AuthenticationMethod,
     ConnectionEndpoint,
@@ -53,7 +53,7 @@ from smartdata.contracts import (
     SecureDatasourceTest,
     SecureDatasourceUpdate,
 )
-from smartdata.contracts.credentials import ManagedSecretKind
+from qaneris.contracts.credentials import ManagedSecretKind
 
 PASSWORD_A = "UNIQUE_CANDIDATE_PASSWORD_A"
 PASSWORD_B = "UNIQUE_CANDIDATE_PASSWORD_B"
@@ -140,7 +140,7 @@ def probe_adapter():
     register_adapter(DatasourceKind.RELATIONAL, PROBE_DRIVER, ProbeAdapter)
     ProbeAdapter.records.clear()
     yield
-    from smartdata.adapters.registry import _ADAPTERS
+    from qaneris.adapters.registry import _ADAPTERS
 
     _ADAPTERS.pop((DatasourceKind.RELATIONAL, PROBE_DRIVER), None)
 
@@ -187,19 +187,19 @@ class RecordingInitializer:
 def store(tmp_path: Path) -> ManagedCredentialStore:
     return ManagedCredentialStore.from_environment(
         {
-            "SMARTDATA_SECRET_STORE_DIR": str(tmp_path / "secrets"),
-            "SMARTDATA_MASTER_KEY": ManagedCredentialStore.generate_master_key(),
+            "QANERIS_SECRET_STORE_DIR": str(tmp_path / "secrets"),
+            "QANERIS_MASTER_KEY": ManagedCredentialStore.generate_master_key(),
         }
     )
 
 
 @pytest.fixture
-def service(tmp_path: Path, store: ManagedCredentialStore) -> SmartDataService:
+def service(tmp_path: Path, store: ManagedCredentialStore) -> QanerisService:
     catalog = Catalog(tmp_path / "catalog.db")
     graph = RecordingGraphStore()
     reader = RecordingGraphReader()
     reader.store = graph
-    instance = SmartDataService(
+    instance = QanerisService(
         catalog,
         # The resolver must read the same store the test writes to, or a rotation test would be
         # exercising a second, empty store.
@@ -222,7 +222,7 @@ class RecordingGraphReader:
         self.store: RecordingGraphStore | None = None
 
     def read_structure(self, request):
-        from smartdata.graph import GraphDatasource, GraphStructure
+        from qaneris.graph import GraphDatasource, GraphStructure
 
         published = self.store.published if self.store else []
         return GraphStructure(
@@ -240,7 +240,7 @@ class RecordingGraphReader:
         )
 
 
-def managed_source(service: SmartDataService, tmp_path: Path, name: str = "sales") -> str:
+def managed_source(service: QanerisService, tmp_path: Path, name: str = "sales") -> str:
     """Create a scanned, READY secure datasource over a real SQLite file."""
     path = source_database(tmp_path / f"{name}.db")
     datasource = service.create_secure_datasource(
@@ -258,7 +258,7 @@ def managed_source(service: SmartDataService, tmp_path: Path, name: str = "sales
 
 
 def test_a_reachable_candidate_reports_a_safe_result(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     path = source_database(tmp_path / "candidate.db")
 
@@ -274,7 +274,7 @@ def test_a_reachable_candidate_reports_a_safe_result(
 
 
 def test_an_unreachable_candidate_fails_with_the_stable_error(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     with pytest.raises(DatasourceConnectionTestError) as raised:
         service.test_secure_datasource(
@@ -287,7 +287,7 @@ def test_an_unreachable_candidate_fails_with_the_stable_error(
     assert raised.value.code == "datasource_connection_test_failed"
 
 
-def test_a_connection_test_writes_nothing(service: SmartDataService, tmp_path: Path) -> None:
+def test_a_connection_test_writes_nothing(service: QanerisService, tmp_path: Path) -> None:
     """The test boundary must not create a datasource, a job, a snapshot or a graph node."""
     path = source_database(tmp_path / "candidate.db")
 
@@ -304,7 +304,7 @@ def test_a_connection_test_writes_nothing(service: SmartDataService, tmp_path: P
 
 
 def test_a_failed_connection_test_also_writes_nothing(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     with pytest.raises(DatasourceConnectionTestError):
         service.test_secure_datasource(
@@ -318,7 +318,7 @@ def test_a_failed_connection_test_also_writes_nothing(
     assert service.initializer.calls == []
 
 
-def test_the_connection_test_result_carries_no_secret(service: SmartDataService, tmp_path: Path) -> None:
+def test_the_connection_test_result_carries_no_secret(service: QanerisService, tmp_path: Path) -> None:
     """The result is a three-field summary; a resolved connection never reaches the caller."""
     path = source_database(tmp_path / "candidate.db")
 
@@ -333,7 +333,7 @@ def test_the_connection_test_result_carries_no_secret(service: SmartDataService,
 
 
 def test_a_driver_failure_does_not_leak_the_resolved_connection(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path
 ) -> None:
     """A driver exception that quotes its input is sanitized before it becomes a product error.
 
@@ -359,7 +359,7 @@ def test_a_driver_failure_does_not_leak_the_resolved_connection(
 # --------------------------------------------------------------------------------------------
 
 
-def test_create_tests_before_it_persists(service: SmartDataService, tmp_path: Path) -> None:
+def test_create_tests_before_it_persists(service: QanerisService, tmp_path: Path) -> None:
     path = source_database(tmp_path / "created.db")
 
     datasource = service.create_secure_datasource(
@@ -374,7 +374,7 @@ def test_create_tests_before_it_persists(service: SmartDataService, tmp_path: Pa
 
 
 def test_a_failed_create_writes_no_datasource_row(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     with pytest.raises(DatasourceConnectionTestError):
         service.create_secure_datasource(
@@ -388,7 +388,7 @@ def test_a_failed_create_writes_no_datasource_row(
     assert service.list_datasources() == []
 
 
-def test_create_does_not_scan(service: SmartDataService, tmp_path: Path) -> None:
+def test_create_does_not_scan(service: QanerisService, tmp_path: Path) -> None:
     """``Test → Save → Scan``: create saves, and only ``scan_datasource`` scans."""
     path = source_database(tmp_path / "created.db")
 
@@ -404,7 +404,7 @@ def test_create_does_not_scan(service: SmartDataService, tmp_path: Path) -> None
     assert service.test_graph.published == []
 
 
-def test_create_creates_no_initialization_job(service: SmartDataService, tmp_path: Path) -> None:
+def test_create_creates_no_initialization_job(service: QanerisService, tmp_path: Path) -> None:
     path = source_database(tmp_path / "created.db")
 
     service.create_secure_datasource(
@@ -416,7 +416,7 @@ def test_create_creates_no_initialization_job(service: SmartDataService, tmp_pat
     assert _job_count(service.catalog.path) == 0
 
 
-def test_create_reports_no_scan_facts(service: SmartDataService, tmp_path: Path) -> None:
+def test_create_reports_no_scan_facts(service: QanerisService, tmp_path: Path) -> None:
     """A saved-but-unscanned datasource must not advertise a scan it never had."""
     path = source_database(tmp_path / "created.db")
     datasource = service.create_secure_datasource(
@@ -434,7 +434,7 @@ def test_create_reports_no_scan_facts(service: SmartDataService, tmp_path: Path)
 
 
 def test_explicit_scan_after_create_reaches_ready(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     path = source_database(tmp_path / "created.db")
     datasource = service.create_secure_datasource(
@@ -454,7 +454,7 @@ def test_explicit_scan_after_create_reaches_ready(
 
 
 def test_a_stored_profile_contains_only_references(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path
 ) -> None:
     secret = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
 
@@ -477,7 +477,7 @@ def test_a_stored_profile_contains_only_references(
 
 
 def test_a_failed_candidate_leaves_the_old_profile_in_place(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     datasource_id = managed_source(service, tmp_path)
     before = service.catalog.get_connection_profile(datasource_id)
@@ -494,7 +494,7 @@ def test_a_failed_candidate_leaves_the_old_profile_in_place(
 
 
 def test_a_failed_candidate_leaves_the_old_scan_active(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     datasource_id = managed_source(service, tmp_path)
     before = service.catalog.get_active_snapshot(datasource_id)
@@ -514,7 +514,7 @@ def test_a_failed_candidate_leaves_the_old_scan_active(
 
 
 def test_a_failed_candidate_does_not_touch_the_graph(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     """The most important ordering rule: no graph deletion before the connection is proven."""
     datasource_id = managed_source(service, tmp_path)
@@ -533,7 +533,7 @@ def test_a_failed_candidate_does_not_touch_the_graph(
 
 
 def test_a_failed_candidate_does_not_run_a_scan(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     datasource_id = managed_source(service, tmp_path)
     before = list(service.initializer.calls)
@@ -550,7 +550,7 @@ def test_a_failed_candidate_does_not_run_a_scan(
 
 
 def test_update_of_an_unknown_datasource_reports_not_found(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     with pytest.raises(DatasourceNotFoundError) as raised:
         service.update_secure_datasource(
@@ -562,7 +562,7 @@ def test_update_of_an_unknown_datasource_reports_not_found(
 
 
 def test_update_of_a_legacy_datasource_is_rejected(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     legacy = service.create_datasource(
         DatasourceCreate(
@@ -582,7 +582,7 @@ def test_update_of_a_legacy_datasource_is_rejected(
 
 
 def test_a_successful_update_switches_the_profile_and_invalidates_the_scan(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     datasource_id = managed_source(service, tmp_path, "first")
     second = source_database(tmp_path / "second.db", table="invoices")
@@ -600,7 +600,7 @@ def test_a_successful_update_switches_the_profile_and_invalidates_the_scan(
 
 
 def test_update_invalidates_before_it_returns(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     """After a successful update, inspect must not still show the old active snapshot."""
     datasource_id = managed_source(service, tmp_path, "first")
@@ -617,7 +617,7 @@ def test_update_invalidates_before_it_returns(
     assert detail.dataset_count == 0
 
 
-def test_update_deletes_the_old_graph(service: SmartDataService, tmp_path: Path) -> None:
+def test_update_deletes_the_old_graph(service: QanerisService, tmp_path: Path) -> None:
     datasource_id = managed_source(service, tmp_path, "first")
     second = source_database(tmp_path / "second.db", table="invoices")
 
@@ -628,7 +628,7 @@ def test_update_deletes_the_old_graph(service: SmartDataService, tmp_path: Path)
     assert service.test_graph.deleted == [datasource_id]
 
 
-def test_update_is_not_scan(service: SmartDataService, tmp_path: Path) -> None:
+def test_update_is_not_scan(service: QanerisService, tmp_path: Path) -> None:
     """An update leaves the datasource saved; reaching READY again requires an explicit scan."""
     datasource_id = managed_source(service, tmp_path, "first")
     second = source_database(tmp_path / "second.db", table="invoices")
@@ -642,7 +642,7 @@ def test_update_is_not_scan(service: SmartDataService, tmp_path: Path) -> None:
 
 
 def test_scanning_after_update_publishes_a_new_version(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     datasource_id = managed_source(service, tmp_path, "first")
     first_version = service.catalog.get_active_snapshot(datasource_id).version
@@ -660,7 +660,7 @@ def test_scanning_after_update_publishes_a_new_version(
 
 
 def test_update_keeps_the_old_snapshot_as_history(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     datasource_id = managed_source(service, tmp_path, "first")
     first_snapshot = service.catalog.get_active_snapshot(datasource_id)
@@ -682,7 +682,7 @@ def test_update_keeps_the_old_snapshot_as_history(
 
 
 def test_a_graph_delete_failure_aborts_the_update(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     datasource_id = managed_source(service, tmp_path, "first")
     before = service.catalog.get_connection_profile(datasource_id)
@@ -702,7 +702,7 @@ def test_a_graph_delete_failure_aborts_the_update(
 
 
 def test_a_graph_delete_failure_does_not_write_the_candidate(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     datasource_id = managed_source(service, tmp_path, "first")
     second = source_database(tmp_path / "second.db", table="invoices")
@@ -722,7 +722,7 @@ def test_a_graph_delete_failure_does_not_write_the_candidate(
 
 
 def test_rotation_deletes_the_now_unreferenced_old_secret(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path
 ) -> None:
     old = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
     new = store.create(ManagedSecretKind.PASSWORD, PASSWORD_B)
@@ -747,7 +747,7 @@ def test_rotation_deletes_the_now_unreferenced_old_secret(
 
 
 def test_a_shared_old_secret_is_retained(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path
 ) -> None:
     """Another datasource still names the secret, so deleting it would break that datasource."""
     shared = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
@@ -773,7 +773,7 @@ def test_a_shared_old_secret_is_retained(
 
 
 def test_a_failed_rotation_keeps_both_secrets(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path
 ) -> None:
     """A failed update keeps the old secret and never deletes the caller's candidate secret."""
     old = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
@@ -804,7 +804,7 @@ def test_a_failed_rotation_keeps_both_secrets(
 
 
 def test_a_secret_cleanup_failure_does_not_fail_the_update(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path, caplog
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path, caplog
 ) -> None:
     """Cleanup is post-mutation garbage collection: it must not roll back a durable update."""
     old = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
@@ -832,7 +832,7 @@ def test_a_secret_cleanup_failure_does_not_fail_the_update(
 
 
 def test_a_cleanup_warning_names_the_secret_but_not_its_value(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path, caplog
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path, caplog
 ) -> None:
     old = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
     datasource = service.create_secure_datasource(
@@ -858,7 +858,7 @@ def test_a_cleanup_warning_names_the_secret_but_not_its_value(
     assert PASSWORD_A not in messages[0]
 
 
-def test_an_unchanged_secret_is_not_deleted(service: SmartDataService, store: ManagedCredentialStore) -> None:
+def test_an_unchanged_secret_is_not_deleted(service: QanerisService, store: ManagedCredentialStore) -> None:
     """A secret the candidate still names is in use by definition, not obsolete."""
     shared = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
     datasource = service.create_secure_datasource(
@@ -880,7 +880,7 @@ def test_an_unchanged_secret_is_not_deleted(service: SmartDataService, store: Ma
 
 
 def test_delete_removes_the_graph_before_the_catalog_row(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     """Graph first: catalog-first would leave a ghost datasource the graph still publishes."""
     datasource_id = managed_source(service, tmp_path)
@@ -892,7 +892,7 @@ def test_delete_removes_the_graph_before_the_catalog_row(
         service.inspect_datasource(datasource_id)
 
 
-def test_delete_removes_the_owned_catalog_state(service: SmartDataService, tmp_path: Path) -> None:
+def test_delete_removes_the_owned_catalog_state(service: QanerisService, tmp_path: Path) -> None:
     datasource_id = managed_source(service, tmp_path)
 
     service.delete_datasource(datasource_id)
@@ -907,7 +907,7 @@ def test_delete_removes_the_owned_catalog_state(service: SmartDataService, tmp_p
 
 
 def test_delete_cleans_up_an_exclusive_managed_secret(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path
 ) -> None:
     secret = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
     datasource = service.create_secure_datasource(
@@ -922,7 +922,7 @@ def test_delete_cleans_up_an_exclusive_managed_secret(
 
 
 def test_delete_retains_a_shared_managed_secret(
-    service: SmartDataService, store: ManagedCredentialStore
+    service: QanerisService, store: ManagedCredentialStore
 ) -> None:
     shared = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
     first = service.create_secure_datasource(
@@ -942,7 +942,7 @@ def test_delete_retains_a_shared_managed_secret(
     assert service.catalog.count_managed_secret_references(shared.id) == 1
 
 
-def test_delete_of_an_unknown_datasource_reports_not_found(service: SmartDataService) -> None:
+def test_delete_of_an_unknown_datasource_reports_not_found(service: QanerisService) -> None:
     with pytest.raises(DatasourceNotFoundError) as raised:
         service.delete_datasource("ds_missing")
 
@@ -950,7 +950,7 @@ def test_delete_of_an_unknown_datasource_reports_not_found(service: SmartDataSer
 
 
 def test_a_graph_delete_failure_aborts_the_datasource_delete(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path
 ) -> None:
     """If the graph cannot be removed, nothing else is: no catalog delete and no secret cleanup."""
     secret = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
@@ -970,7 +970,7 @@ def test_a_graph_delete_failure_aborts_the_datasource_delete(
 
 
 def test_delete_removes_a_legacy_datasource_without_secret_cleanup(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     """A legacy connection document names no managed secret, so there is nothing to collect."""
     legacy = service.create_datasource(
@@ -988,7 +988,7 @@ def test_delete_removes_a_legacy_datasource_without_secret_cleanup(
 
 
 def test_delete_leaves_other_datasources_published(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     kept = managed_source(service, tmp_path, "kept")
     doomed = managed_source(service, tmp_path, "doomed")
@@ -1000,7 +1000,7 @@ def test_delete_leaves_other_datasources_published(
     assert service.test_graph.deleted == [doomed]
 
 
-def test_a_deleted_datasource_cannot_be_deleted_again(service: SmartDataService, tmp_path: Path) -> None:
+def test_a_deleted_datasource_cannot_be_deleted_again(service: QanerisService, tmp_path: Path) -> None:
     datasource_id = managed_source(service, tmp_path)
 
     service.delete_datasource(datasource_id)
@@ -1015,7 +1015,7 @@ def test_a_deleted_datasource_cannot_be_deleted_again(service: SmartDataService,
 
 
 def test_update_runs_test_then_graph_then_catalog_then_invalidate(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path
 ) -> None:
     """The whole documented order is the contract; a reordering must not pass silently.
 
@@ -1076,7 +1076,7 @@ def test_update_runs_test_then_graph_then_catalog_then_invalidate(
 
 
 def test_delete_runs_graph_then_catalog_then_cleanup(
-    service: SmartDataService, store: ManagedCredentialStore
+    service: QanerisService, store: ManagedCredentialStore
 ) -> None:
     secret = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
     datasource = service.create_secure_datasource(
@@ -1109,7 +1109,7 @@ def test_delete_runs_graph_then_catalog_then_cleanup(
 
 
 def test_a_candidate_test_always_precedes_any_graph_mutation(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     datasource_id = managed_source(service, tmp_path)
     service.test_graph.calls.clear()
@@ -1131,7 +1131,7 @@ def test_a_candidate_test_always_precedes_any_graph_mutation(
 
 
 def test_no_secret_value_reaches_the_catalog_graph_or_logs(
-    service: SmartDataService, store: ManagedCredentialStore, tmp_path: Path, caplog
+    service: QanerisService, store: ManagedCredentialStore, tmp_path: Path, caplog
 ) -> None:
     secret = store.create(ManagedSecretKind.PASSWORD, PASSWORD_A)
     reachable = source_database(tmp_path / "candidate.db")

@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from smartdata.common.errors import GraphUnavailableError
-from smartdata.graph import (
+from qaneris.common.errors import GraphUnavailableError
+from qaneris.graph import (
     GraphDataObject,
     GraphDatasource,
     GraphField,
@@ -14,7 +14,7 @@ from smartdata.graph import (
     NullGraphReader,
     graph_reader_from_environment,
 )
-from smartdata.graph.reading import GraphBindingReference
+from qaneris.graph.reading import GraphBindingReference
 
 
 def datasource(datasource_id: str = "ds_sales") -> GraphDatasource:
@@ -156,13 +156,13 @@ def test_null_graph_reader_fails_closed_instead_of_reporting_an_empty_graph() ->
 
 
 def test_reader_factory_follows_the_graph_store_switch() -> None:
-    reader = graph_reader_from_environment({"SMARTDATA_GRAPH_STORE": "null"})
+    reader = graph_reader_from_environment({"QANERIS_GRAPH_STORE": "null"})
 
     assert isinstance(reader, NullGraphReader)
     with pytest.raises(GraphUnavailableError):
         reader.read_structure(GraphStructureRequest())
-    with pytest.raises(ValueError, match="Unsupported SMARTDATA_GRAPH_STORE"):
-        graph_reader_from_environment({"SMARTDATA_GRAPH_STORE": "oracle"})
+    with pytest.raises(ValueError, match="Unsupported QANERIS_GRAPH_STORE"):
+        graph_reader_from_environment({"QANERIS_GRAPH_STORE": "oracle"})
 
 
 def test_relationship_read_model_has_no_inferred_semantics() -> None:

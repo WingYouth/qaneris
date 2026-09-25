@@ -46,7 +46,7 @@ export function uploadFormData(url, formData, { onUploadProgress, onUploadComple
 
     request.addEventListener("error", () => {
       reject(
-        new ApiError("Unable to reach the SmartData backend.", {
+        new ApiError("Unable to reach the Qaneris backend.", {
           status: 0,
           code: NETWORK_ERROR_CODE,
         }),
@@ -79,7 +79,7 @@ export function createFetchTransport(fetchImpl, { onUploadComplete } = {}) {
     try {
       response = await fetchImpl(url, { method: "POST", body: formData });
     } catch (cause) {
-      throw new ApiError("Unable to reach the SmartData backend.", {
+      throw new ApiError("Unable to reach the Qaneris backend.", {
         status: 0,
         code: NETWORK_ERROR_CODE,
         cause,

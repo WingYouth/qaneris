@@ -9,13 +9,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from smartdata.adapters.document.mongodb import MongoDBAdapter
-from smartdata.adapters.key_value.redis import RedisAdapter
-from smartdata.adapters.relational.sqlalchemy import SQLAlchemyAdapter
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.common.errors import ExecutionValidationError
-from smartdata.contracts import (
+from qaneris.adapters.document.mongodb import MongoDBAdapter
+from qaneris.adapters.key_value.redis import RedisAdapter
+from qaneris.adapters.relational.sqlalchemy import SQLAlchemyAdapter
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.common.errors import ExecutionValidationError
+from qaneris.contracts import (
     AggregateFunction,
     Datasource,
     DatasourceKind,
@@ -27,9 +27,9 @@ from smartdata.contracts import (
     PlanFilter,
     QueryResultType,
 )
-from smartdata.querying.execution import GroundedQueryExecutor
-from smartdata.querying.generation.native import GroundedNativeCompiler
-from smartdata.querying.validation.native import GroundedNativeQueryValidator
+from qaneris.querying.execution import GroundedQueryExecutor
+from qaneris.querying.generation.native import GroundedNativeCompiler
+from qaneris.querying.validation.native import GroundedNativeQueryValidator
 
 
 def case(driver: str, *, key: str = "secret-key") -> tuple[Datasource, GroundedQueryPlan]:
@@ -116,7 +116,7 @@ def test_formal_compiler_validator_executor_adapter(driver, tmp_path, monkeypatc
 @pytest.mark.parametrize("driver", ["sqlite", "postgresql", "mysql", "mongodb", "redis"])
 def test_stale_version_fails_before_source_connection(driver, tmp_path):
     ds, plan = case(driver)
-    service = SmartDataService(Catalog(tmp_path / "catalog.db"))
+    service = QanerisService(Catalog(tmp_path / "catalog.db"))
     service.catalog.get_datasource = Mock(return_value=(ds, {}))
     service.grounded_plan_validator.validate = Mock()
     service.graph_reader.read_structure = Mock(return_value=SimpleNamespace(datasources=[

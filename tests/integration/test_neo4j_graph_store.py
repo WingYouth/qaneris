@@ -6,9 +6,9 @@ from typing import Any, Self
 
 import pytest
 
-from smartdata.contracts import DatasetInfo, Datasource, FieldInfo, RelationInfo
-from smartdata.graph.neo4j import Neo4jGraphStore
-from smartdata.scan import ScanEdgeType, ScanGraphBuilder
+from qaneris.contracts import DatasetInfo, Datasource, FieldInfo, RelationInfo
+from qaneris.graph.neo4j import Neo4jGraphStore
+from qaneris.scan import ScanEdgeType, ScanGraphBuilder
 
 
 class _Result:

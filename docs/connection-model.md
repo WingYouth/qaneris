@@ -1,4 +1,4 @@
-# SmartData Connection & TLS Model(数据源连接与SSL/TLS设计)
+# Qaneris Connection & TLS Model(数据源连接与SSL/TLS设计)
 
 本文是 Roadshow Credential / Certificate / Secure Datasource / TLS 的唯一详细设计来源。Roadshow 明确不开发 User Login / Session / JWT / OAuth / RBAC；`workspace_id` 保持业务作用域参数。
 
@@ -12,13 +12,13 @@
 - `SecretProviderKind` 现为 `environment`、`file` 和 `managed`。
 - `SecretResolver.materialize()` 在运行时解析 Secret Reference，形成 `ResolvedConnection`；`to_adapter_connection()` 只在 Adapter 边界把连接物化。
 - `Catalog.create_secure_datasource()` 保存 `connection_profile_v1` 和 Secret Reference，不保存 Secure Contract 里的 secret 原文。
-- `SmartDataService.create_secure_datasource()` 会先 materialize 并 `test_connection()`，成功后**只保存**数据源（`status=created`）；它不再顺带 scan，`scan_datasource()` 是唯一扫描入口。
+- `QanerisService.create_secure_datasource()` 会先 materialize 并 `test_connection()`，成功后**只保存**数据源（`status=created`）；它不再顺带 scan，`scan_datasource()` 是唯一扫描入口。
 
 RS-CRED-01A 之后，受管凭据核心已经存在：
 
-- **Managed CredentialStore**：`smartdata/connections/managed_store.py`。每个 secret 一个文件，AES-256-GCM 加密、每次新建 nonce，并把 secret 身份与类型绑定为 AAD，使密文不能被移到别的 secret 或类型下；存储目录由 `SMARTDATA_SECRET_STORE_DIR` 指定且必须在仓库之外（`0700`），单文件 `0600`；写入走同目录临时文件 + `os.replace` 的原子路径；`SMARTDATA_MASTER_KEY` 必须是 32 字节 URL-safe Base64，缺失或非法一律 fail closed，不会自动生成或回退弱默认值。
-- **Certificate Validator**：`smartdata/connections/certificate_validator.py`。PEM/DER 都接受并统一归一化为 PEM；校验解析、当前有效期、CA/client 用途合理性；私钥支持 PKCS#8 与 TraditionalOpenSSL 并归一化为 PKCS#8 PEM；加密私钥密码错误或缺失即拒绝；`validate_client_pair()` 以 public key 比对，证书与私钥不匹配立即报 `certificate_key_mismatch`。证书正文与私钥内容都不进入 metadata。
-- **Credential Service**：`smartdata/connections/credential_service.py`。负责校验、归一化与受引用保护的删除：`Catalog.count_managed_secret_references()` 会解析每个 `connection_profile_v1` 并递归统计 Secret Reference，仍被引用的 secret 返回 `managed_secret_in_use` 而不是被删除。
+- **Managed CredentialStore**：`qaneris/connections/managed_store.py`。每个 secret 一个文件，AES-256-GCM 加密、每次新建 nonce，并把 secret 身份与类型绑定为 AAD，使密文不能被移到别的 secret 或类型下；存储目录由 `QANERIS_SECRET_STORE_DIR` 指定且必须在仓库之外（`0700`），单文件 `0600`；写入走同目录临时文件 + `os.replace` 的原子路径；`QANERIS_MASTER_KEY` 必须是 32 字节 URL-safe Base64，缺失或非法一律 fail closed，不会自动生成或回退弱默认值。
+- **Certificate Validator**：`qaneris/connections/certificate_validator.py`。PEM/DER 都接受并统一归一化为 PEM；校验解析、当前有效期、CA/client 用途合理性；私钥支持 PKCS#8 与 TraditionalOpenSSL 并归一化为 PKCS#8 PEM；加密私钥密码错误或缺失即拒绝；`validate_client_pair()` 以 public key 比对，证书与私钥不匹配立即报 `certificate_key_mismatch`。证书正文与私钥内容都不进入 metadata。
+- **Credential Service**：`qaneris/connections/credential_service.py`。负责校验、归一化与受引用保护的删除：`Catalog.count_managed_secret_references()` 会解析每个 `connection_profile_v1` 并递归统计 Secret Reference，仍被引用的 secret 返回 `managed_secret_in_use` 而不是被删除。
 - **Managed 解析**：`ManagedSecretProvider` 让 `SecretReference(provider="managed", identifier="sec_...")` 可被 `SecretResolver.materialize()` 解析。provider 是按需构造的：只有真正解析 managed 引用时才要求 master key 与存储目录已配置，纯 environment/file 部署不受影响。
 
 RS-CONN-01A 之后，Secure Datasource 生命周期已经存在：
@@ -28,14 +28,14 @@ RS-CONN-01A 之后，Secure Datasource 生命周期已经存在：
 - **Scan Invalidation**：`Catalog.invalidate_datasource_scan()` 在**单个事务**内停用 `scan_snapshot.active`、清空当前 `dataset` / `relation` / `dataset_sample` / `mapping`，并把 datasource 置回 `created`；历史 `scan_snapshot` 与 `initialization_job` 行保留，不物理删除。这保证“新连接 + 旧活跃 scan”不会被继续用于 Ask。
 - **Delete(graph-first)**：`delete_datasource()` 固定顺序为 `resolve → 读取当前 secure profile → 收集 managed secret ids → 删除 Neo4j 图 → 在单事务内删除 Catalog datasource 及其当前事实 → 清理已无引用的 managed secret`。图删除失败时 Catalog 与凭据库不变；未知 id 返回 `datasource_not_found`。
 - **Managed Secret 回收**：`old_secret_ids - new_secret_ids = obsolete_secret_ids`，逐个按 `count_managed_secret_references()` 判断，引用数为 0 才调用 `CredentialService.delete_secret()`。清理失败不回滚已完成的 datasource 变更，只记录 `secret_id` + 错误类型的 warning，不记录 secret 内容。
-- **引用抽取**：`smartdata/connections/references.py` 提供的 `managed_secret_ids(profile)` 以结构化方式读取 `AuthenticationConfig` / `TLSConfig`，不使用 `json.dumps(profile)`、子串匹配或正则；`Catalog.count_managed_secret_references()` 复用同一 helper。
+- **引用抽取**：`qaneris/connections/references.py` 提供的 `managed_secret_ids(profile)` 以结构化方式读取 `AuthenticationConfig` / `TLSConfig`，不使用 `json.dumps(profile)`、子串匹配或正则；`Catalog.count_managed_secret_references()` 复用同一 helper。
 
 RS-CONN-01B 之后，TLS 物化与 Driver TLS 矩阵也已存在：
 
-- **TLSMaterializer**：`smartdata/connections/tls_materializer.py`。正式边界是 context manager：`with TLSMaterializer().materialize(resolved) as parameters:`。文件型 Driver 需要的临时证书路径只在该 block 内有效，退出时（成功、连接失败、Adapter 异常、`KeyboardInterrupt` 全部路径）用 `shutil.rmtree` 清理。TLS 关闭时不创建任何临时目录。
+- **TLSMaterializer**：`qaneris/connections/tls_materializer.py`。正式边界是 context manager：`with TLSMaterializer().materialize(resolved) as parameters:`。文件型 Driver 需要的临时证书路径只在该 block 内有效，退出时（成功、连接失败、Adapter 异常、`KeyboardInterrupt` 全部路径）用 `shutil.rmtree` 清理。TLS 关闭时不创建任何临时目录。
 - **运行时证书复检**：无论 secret 来自 environment / file / managed，物化时都重新走一遍 `CertificateValidator`；证书可能在托管上传后过期，environment/file 引用的内容也可能被改动，因此连接前必须 fail closed。client certificate + private key 同时存在时在 Driver 打开连接前调用 `validate_client_pair()`。
-- **临时目录安全**：`tempfile.mkdtemp(prefix="smartdata-tls-")`，目录 `0700`、文件 `0600`；文件用 `os.open(O_CREAT | O_EXCL | O_WRONLY, 0o600)` 写入并 `flush` + `fsync`，不使用 `Path.write_text()`。固定文件名（`ca.pem` / `client-cert.pem` / `client-key.pem` / `client-combined.pem`）因父目录随机私有而安全。
-- **Driver TLS 矩阵**：`smartdata/connections/tls_matrix.py` 的 `TLS_DRIVER_MATRIX` 是唯一事实来源，逐 Driver 声明 `strategy` / `custom_ca` / `mtls` / `server_name_override` / `tls13_control`，覆盖 16 个路演 Driver。Adapter 不再自行声明能力。请求 Matrix 不支持的能力（如 SQL Server 自定义 CA、Qdrant mTLS、无 1.3 能力 Driver 的 1.3 下限）抛 `tls_feature_unsupported`，绝不静默忽略、绝不自动 `verify_server=False`。
+- **临时目录安全**：`tempfile.mkdtemp(prefix="qaneris-tls-")`，目录 `0700`、文件 `0600`；文件用 `os.open(O_CREAT | O_EXCL | O_WRONLY, 0o600)` 写入并 `flush` + `fsync`，不使用 `Path.write_text()`。固定文件名（`ca.pem` / `client-cert.pem` / `client-key.pem` / `client-combined.pem`）因父目录随机私有而安全。
+- **Driver TLS 矩阵**：`qaneris/connections/tls_matrix.py` 的 `TLS_DRIVER_MATRIX` 是唯一事实来源，逐 Driver 声明 `strategy` / `custom_ca` / `mtls` / `server_name_override` / `tls13_control`，覆盖 16 个路演 Driver。Adapter 不再自行声明能力。请求 Matrix 不支持的能力（如 SQL Server 自定义 CA、Qdrant mTLS、无 1.3 能力 Driver 的 1.3 下限）抛 `tls_feature_unsupported`，绝不静默忽略、绝不自动 `verify_server=False`。
 - **边界收缩**：`to_adapter_connection()` 不再输出 `connection.tls_material`；CA / client cert / private key 的 PEM 正文不进入 Adapter connection dict，也不进入 URL。TLS secret → Driver 参数的转换只由 `TLSMaterializer` 完成。
 - **连接生命周期**：`ConnectionProvider.open()` / `open_profile()` 为正式 runtime API；`DatabaseInitializer`、`GroundedQueryExecutor`、显式 SQL 路径与候选连接测试均已迁移。兼容用的 `get()` 对 legacy 与 TLS-disabled secure datasource 保持可用，对 TLS-enabled datasource 抛 `tls_feature_unsupported` 并提示改用 `open()`，绝不返回已失去生命周期的 TLS 临时路径。
 - **无全局状态**：`TLSMaterializer` 不设置 `SSL_CERT_FILE` / `REQUESTS_CA_BUNDLE` / `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH`；所有 TLS 状态都是 datasource-scoped。
@@ -58,7 +58,7 @@ Catalog 只保存不可反推出 secret 的 `SecretReference`。
 
 ### 2.1 Roadshow Deployment Boundary(路演部署边界)
 
-因为本版本不实现应用层登录，Web/API 不得直接作为开放公网服务。路演环境必须使用受控网络、VPN 或反向代理访问控制；这属于部署边界，不在 SmartData 内新增临时认证系统。
+因为本版本不实现应用层登录，Web/API 不得直接作为开放公网服务。路演环境必须使用受控网络、VPN 或反向代理访问控制；这属于部署边界，不在 Qaneris 内新增临时认证系统。
 
 ## 3. Roadshow Credential / Certificate Lifecycle(路演凭据与证书生命周期)
 
@@ -77,13 +77,13 @@ Password / token / certificate material enters through a dedicated product bound
 
 RS-CRED-01A 已将该设计落地：`managed` Secret Provider + 仓库外 `ManagedCredentialStore` + AES-256-GCM + 环境注入 Master Key。后续产品入口只能通过 `CredentialService` 创建受管 secret，并拿到 opaque `secret_id` / `SecretReference`；不得创建第二套 secret 存储或把原文写入 Catalog。后续生产可以把同一 Store Port 换成 Vault / Cloud Secret Manager，而不改变 `ConnectionProfile`。
 
-RS-CRED-01B 已把该链路暴露为 HTTP 产品入口（`smartdata/interfaces/api/credentials.py`），并固定三条上传语义：
+RS-CRED-01B 已把该链路暴露为 HTTP 产品入口（`qaneris/interfaces/api/credentials.py`），并固定三条上传语义：
 
 - **文本与证书分开入口**：JSON `POST /api/credentials` 只接受 password / token / api_key / client_private_key_password；CA 证书走 `POST /api/certificates/ca`，mTLS client identity 走 `POST /api/certificates/client-identity`。这样每类 material 的数据类型与大小限制明确，client cert/key 可以在产品入口完成 pair validation。
 - **`CredentialService.create_secret()` 接受 `str | bytes`**：证书与私钥既支持 PEM 也支持 DER（DER 是二进制，不能先强制 UTF-8 decode）；文本 kind 传 bytes 直接 `invalid_request`，不做隐式编码猜测。
 - **`create_client_identity()` 固定顺序**：normalize cert → normalize key（可用 transient `private_key_password` 解密）→ `validate_client_pair` → store cert → store key → 返回 `(client_certificate, client_private_key)`。pair 校验一定在存储 **之前**；两次写入 all-or-nothing，第二个 store 失败会删除刚写入的第一个 secret，不留 orphan credential。上传的私钥统一归一化为未加密 PKCS#8，因此解密密码只在上传请求内存在，不会自动创建 `CLIENT_PRIVATE_KEY_PASSWORD` secret。
 
-产品入口只投影 `ManagedCredentialPublic`（`secret_id` 而非内部 `ManagedSecretInfo.id`），只调用 `SmartDataService` 公开方法；证书/私钥上传不创建 datasource、不测试连接、不写 Neo4j。CLI / MCP / Web 复用同一批 API，不各自实现证书解析、加密或 secret 存储。
+产品入口只投影 `ManagedCredentialPublic`（`secret_id` 而非内部 `ManagedSecretInfo.id`），只调用 `QanerisService` 公开方法；证书/私钥上传不创建 datasource、不测试连接、不写 Neo4j。CLI / MCP / Web 复用同一批 API，不各自实现证书解析、加密或 secret 存储。
 
 ## 4. Certificate Validation(证书验证)
 
@@ -178,7 +178,7 @@ SecretReference
 
 ## 9. Product Surface Boundary(产品入口边界)
 
-- CLI 继续本地调用 `SmartDataService`，不改造成 HTTP Client；password/token 使用隐藏输入或 stdin，certificate/private key 通过文件路径导入，禁止 secret 出现在 argv/history。
+- CLI 继续本地调用 `QanerisService`，不改造成 HTTP Client；password/token 使用隐藏输入或 stdin，certificate/private key 通过文件路径导入，禁止 secret 出现在 argv/history。
 - MCP 不接收任何 secret 原文，只使用 `SecretReference`、`datasource_id` 等非敏感引用。
 - Web 使用 Driver → Endpoint → Authentication → TLS/Certificate → Test Connection → Save → Scan → Ready 的固定向导；上传成功后前端只持有 `secret_id` / `SecretReference`。
 - API/CLI/Web 的上传边界统一调用现有 `CredentialService`；不得各自实现证书解析、加密或 secret 存储。
@@ -187,7 +187,7 @@ SecretReference
 
 `NLQuery-Test-Dataset` 当前提供 16 个服务型数据库测试目标，另有容器化 SQLite。16 个服务型数据库的真实 TLS / connection / scan / Neo4j 回读**不再作为当前 Product Surface 开发前置条件**，统一延后到数据库部署到服务器后执行。
 
-服务器阶段目标仍保持：16 个服务型数据库完成 SmartData 真实连接与 scan，其中 14 个完成真实 SSL/TLS handshake + connection + scan 验收。本文 **不提前指定哪两个数据库豁免 TLS**；豁免只能依据服务器上的实际镜像、协议与 Driver 支持结果确定并记录原因。
+服务器阶段目标仍保持：16 个服务型数据库完成 Qaneris 真实连接与 scan，其中 14 个完成真实 SSL/TLS handshake + connection + scan 验收。本文 **不提前指定哪两个数据库豁免 TLS**；豁免只能依据服务器上的实际镜像、协议与 Driver 支持结果确定并记录原因。
 
 最终服务器验收矩阵至少记录：driver、endpoint、auth method、TLS on/off、CA、client cert、hostname verify、minimum TLS、connection test、scan、Neo4j validation、notes。代码级 TLS Matrix DONE 不能代替这份服务器验收证据。
 
@@ -196,7 +196,7 @@ SecretReference
 - API/CLI/Web 可以安全创建/上传凭据与证书并得到 opaque SecretReference；MCP 只消费引用，不接收 secret 原文。
 - Catalog / API / CLI / MCP / logs / trace 中没有 secret 原文。
 - Secure Datasource create/update/test/delete 采用 candidate-first 失败安全行为，更新失败时旧配置保持可用。
-- 在服务器部署阶段，14 个路演目标完成真实 TLS connection test + SmartData scan；该项是最终 Release Gate，不阻塞当前 CRED-01B / CLI / MCP / Skill / Web 开发。
+- 在服务器部署阶段，14 个路演目标完成真实 TLS connection test + Qaneris scan；该项是最终 Release Gate，不阻塞当前 CRED-01B / CLI / MCP / Skill / Web 开发。
 - 证书格式错误、过期、key mismatch、错误 CA、错误 hostname、错误私钥密码均失败关闭。
 - Driver 需要文件路径时使用受控临时 materialization，并验证清理。
 - Rotation / delete 有自动化测试。

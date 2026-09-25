@@ -5,8 +5,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from examples.create_demo_database import create_demo_database
-from smartdata.contracts import DatasourceCreate, MappingInfo, RelationInfo
-from smartdata.interfaces.api.app import create_app
+from qaneris.contracts import DatasourceCreate, MappingInfo, RelationInfo
+from qaneris.interfaces.api.app import create_app
 
 
 def test_relation_and_mapping_endpoints_filter_catalog_data(tmp_path: Path) -> None:

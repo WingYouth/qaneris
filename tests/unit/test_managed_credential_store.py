@@ -18,20 +18,20 @@ from unittest.mock import Mock
 import pytest
 from pydantic import ValidationError
 
-from smartdata.common.artifacts import project_root
-from smartdata.common.errors import (
+from qaneris.common.artifacts import project_root
+from qaneris.common.errors import (
     CredentialStoreConfigurationError,
     ManagedSecretIntegrityError,
     ManagedSecretNotFoundError,
 )
-from smartdata.connections import managed_store
-from smartdata.connections.managed_store import ManagedCredentialStore
-from smartdata.contracts.credentials import ManagedSecretInfo, ManagedSecretKind
+from qaneris.connections import managed_store
+from qaneris.connections.managed_store import ManagedCredentialStore
+from qaneris.contracts.credentials import ManagedSecretInfo, ManagedSecretKind
 
 PASSWORD = "UNIQUE_PASSWORD_MARKER"
 TOKEN = "UNIQUE_TOKEN_MARKER"
-MASTER_KEY_ENV = "SMARTDATA_MASTER_KEY"
-STORE_DIR_ENV = "SMARTDATA_SECRET_STORE_DIR"
+MASTER_KEY_ENV = "QANERIS_MASTER_KEY"
+STORE_DIR_ENV = "QANERIS_SECRET_STORE_DIR"
 
 
 def environment(tmp_path: Path, **changes: str) -> dict[str, str]:

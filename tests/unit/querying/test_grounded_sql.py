@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from smartdata.common.errors import ExecutionValidationError, QueryPlanningError, QuerySafetyError
-from smartdata.contracts import (
+from qaneris.common.errors import ExecutionValidationError, QueryPlanningError, QuerySafetyError
+from qaneris.contracts import (
     AggregateFunction,
     FilterOperator,
     GroundedDataObjectRef,
@@ -19,8 +19,8 @@ from smartdata.contracts import (
     SortDirection,
     TimeRange,
 )
-from smartdata.querying.generation import GroundedSQLCompiler
-from smartdata.querying.validation import ExecutionRevisionValidator, GroundedNativeQueryValidator
+from qaneris.querying.generation import GroundedSQLCompiler
+from qaneris.querying.validation import ExecutionRevisionValidator, GroundedNativeQueryValidator
 
 
 def field(name: str, object_id: str = "orders") -> GroundedFieldRef:
@@ -219,7 +219,7 @@ def test_native_query_provenance_accepts_a_bit_identical_recompilation() -> None
 # ----------------------------------------------------------------------
 
 
-from smartdata.querying.validation.read_only import (
+from qaneris.querying.validation.read_only import (
     UnsafeQueryError,
     validate_read_only_query,
 )

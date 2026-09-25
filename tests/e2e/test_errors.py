@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from examples.create_demo_database import create_demo_database
-from smartdata.interfaces.api.app import create_app
+from qaneris.interfaces.api.app import create_app
 
 
 def test_api_reports_missing_and_unready_datasources(tmp_path: Path) -> None:
@@ -48,8 +48,8 @@ def test_api_reports_validation_model_configuration_and_safety_errors(
 ) -> None:
     # The natural-language path explicitly requires an intent model; this test exercises that
     # precondition without depending on a live provider. SQL safety stays on the legacy path.
-    for key in ("SMARTDATA_MODEL_PROFILE", "SMARTDATA_MODEL_BASE_URL",
-                "SMARTDATA_MODEL_API_KEY", "SMARTDATA_MODEL_NAME"):
+    for key in ("QANERIS_MODEL_PROFILE", "QANERIS_MODEL_BASE_URL",
+                "QANERIS_MODEL_API_KEY", "QANERIS_MODEL_NAME"):
         monkeypatch.delenv(key, raising=False)
     source_path = create_demo_database(tmp_path / "sales.db")
     app = create_app(str(tmp_path / "catalog.db"))

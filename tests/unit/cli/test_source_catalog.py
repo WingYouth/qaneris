@@ -1,4 +1,4 @@
-"""CLI contract tests for ``smartdata source list`` / ``show`` / ``scan-one`` (RS-CLI-01B).
+"""CLI contract tests for ``qaneris source list`` / ``show`` / ``scan-one`` (RS-CLI-01B).
 
 These lock the interface contract only: the argument wiring, the single Application Service call
 per command, the human and JSON output shapes, stdout purity for JSON reports, the stable product
@@ -18,11 +18,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from smartdata.application.service import SmartDataService
-from smartdata.cli import main as cli
-from smartdata.cli import source as source_cli
-from smartdata.common.errors import DatasourceNotFoundError, SmartDataError
-from smartdata.contracts import DatasetInfo, Datasource, DatasourceDetail
+from qaneris.application.service import QanerisService
+from qaneris.cli import main as cli
+from qaneris.cli import source as source_cli
+from qaneris.common.errors import DatasourceNotFoundError, QanerisError
+from qaneris.contracts import DatasetInfo, Datasource, DatasourceDetail
 
 DATASOURCE_ID = "ds_ff606cfffe96"
 OTHER_ID = "ds_0011223344"
@@ -71,12 +71,12 @@ def datasets() -> list[DatasetInfo]:
 
 def installed(monkeypatch: pytest.MonkeyPatch, service: Any) -> Mock:
     constructor = Mock(return_value=service)
-    monkeypatch.setattr(source_cli, "SmartDataService", constructor)
+    monkeypatch.setattr(source_cli, "QanerisService", constructor)
     return constructor
 
 
 def serving(monkeypatch: pytest.MonkeyPatch, **methods: Any) -> Any:
-    service = Mock(spec=SmartDataService, **methods)
+    service = Mock(spec=QanerisService, **methods)
     installed(monkeypatch, service)
     return service
 
@@ -469,10 +469,10 @@ def test_usage_errors_exit_two(
     assert code == 2
 
 
-def test_a_smartdata_error_exposes_its_code_through_the_shared_helper() -> None:
+def test_a_qaneris_error_exposes_its_code_through_the_shared_helper() -> None:
     """The failure projection is shared, so a product code is never replaced by a bare type name."""
     error = DatasourceNotFoundError("数据源不存在：ds_missing")
-    service_error = SmartDataError("boom")
+    service_error = QanerisError("boom")
 
     assert source_cli.operation_error_detail(error)["code"] == "datasource_not_found"
     assert source_cli.operation_error_detail(error)["message"] == "数据源不存在：ds_missing"

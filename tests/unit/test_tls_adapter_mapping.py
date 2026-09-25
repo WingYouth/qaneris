@@ -16,17 +16,17 @@ from typing import Any, Self
 
 import pytest
 
-from smartdata.adapters.document.couchdb import CouchDBAdapter
-from smartdata.adapters.document.mongodb import MongoDBAdapter
-from smartdata.adapters.graph.neo4j import Neo4jAdapter
-from smartdata.adapters.key_value.redis import RedisAdapter
-from smartdata.adapters.relational.sqlalchemy import SQLAlchemyAdapter
-from smartdata.adapters.search.engine import SearchAdapter
-from smartdata.adapters.time_series.influxdb import InfluxDBAdapter
-from smartdata.adapters.vector.milvus import MilvusAdapter
-from smartdata.adapters.vector.qdrant import QdrantAdapter
-from smartdata.adapters.vector.weaviate import WeaviateAdapter
-from smartdata.adapters.wide_column.cassandra import CassandraAdapter
+from qaneris.adapters.document.couchdb import CouchDBAdapter
+from qaneris.adapters.document.mongodb import MongoDBAdapter
+from qaneris.adapters.graph.neo4j import Neo4jAdapter
+from qaneris.adapters.key_value.redis import RedisAdapter
+from qaneris.adapters.relational.sqlalchemy import SQLAlchemyAdapter
+from qaneris.adapters.search.engine import SearchAdapter
+from qaneris.adapters.time_series.influxdb import InfluxDBAdapter
+from qaneris.adapters.vector.milvus import MilvusAdapter
+from qaneris.adapters.vector.qdrant import QdrantAdapter
+from qaneris.adapters.vector.weaviate import WeaviateAdapter
+from qaneris.adapters.wide_column.cassandra import CassandraAdapter
 from tests.unit._tls_helpers import ca_certificate, client_certificate, key_pem, pem, private_key
 
 
@@ -95,7 +95,7 @@ def stub_driver_modules(monkeypatch: pytest.MonkeyPatch):
 
 def materialized(driver: str, **tls: Any) -> dict[str, Any]:
     """Run the real materializer, so adapters are tested against its actual output."""
-    from smartdata.connections.tls_materializer import TLSMaterializer
+    from qaneris.connections.tls_materializer import TLSMaterializer
 
     connection = _resolved(driver, **tls)
     with TLSMaterializer().materialize(connection) as parameters:
@@ -253,7 +253,7 @@ def test_mongodb_adapter_forwards_tls_files(stub_driver_modules) -> None:
 
 def test_mongodb_combined_file_holds_the_key_then_the_certificate(monkeypatch, tmp_path) -> None:
     """pymongo expects the private key first; the materializer must honour that order."""
-    from smartdata.connections.tls_materializer import TLSMaterializer
+    from qaneris.connections.tls_materializer import TLSMaterializer
 
     certificate, key = client_pair()
     connection = _resolved("mongodb", client_cert=certificate, client_key=key)
@@ -505,7 +505,7 @@ def test_no_adapter_mutates_process_global_trust(driver: str, monkeypatch) -> No
     """The materializer must never set a process-global trust variable."""
     import os
 
-    from smartdata.connections.tls_materializer import TLSMaterializer
+    from qaneris.connections.tls_materializer import TLSMaterializer
 
     names = ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH")
     for name in names:

@@ -5,18 +5,18 @@ from pathlib import Path
 
 import pytest
 
-from smartdata.common.errors import ModelInvocationError
-from smartdata.contracts import AskClarification, AskEvent, AskResponse, AskStatus
-from smartdata.contracts.semantic import BusinessFilter, BusinessQuery, ComparisonSpec
-from smartdata.conversation.context import ConversationContextResolver, working_set
-from smartdata.conversation.models import Message, SemanticMemory, now
-from smartdata.conversation.repository import SQLiteConversationRepository
-from smartdata.conversation.service import ConversationService
-from smartdata.runtime.models import Run, RunStatus
-from smartdata.runtime.orchestrator import RunOrchestrator
-from smartdata.runtime.repository import SQLiteRunRepository
-from smartdata.runtime.scheduler import InlineRunScheduler
-from smartdata.runtime.state_machine import transition
+from qaneris.common.errors import ModelInvocationError
+from qaneris.contracts import AskClarification, AskEvent, AskResponse, AskStatus
+from qaneris.contracts.semantic import BusinessFilter, BusinessQuery, ComparisonSpec
+from qaneris.conversation.context import ConversationContextResolver, working_set
+from qaneris.conversation.models import Message, SemanticMemory, now
+from qaneris.conversation.repository import SQLiteConversationRepository
+from qaneris.conversation.service import ConversationService
+from qaneris.runtime.models import Run, RunStatus
+from qaneris.runtime.orchestrator import RunOrchestrator
+from qaneris.runtime.repository import SQLiteRunRepository
+from qaneris.runtime.scheduler import InlineRunScheduler
+from qaneris.runtime.state_machine import transition
 
 
 @dataclass

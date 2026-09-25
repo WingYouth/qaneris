@@ -50,8 +50,7 @@ function RunCard({ runId, run, events, message, onLoadRun, onAction, busy, canRe
   const view = runView(run);
   const [opened, setOpened] = useState(false);
   const status = run?.status;
-  const rescanRequired = graphRescanRequired(run);
-  return <article className="message message--assistant"><span className="message__role">SmartData</span>
+  return <article className="message message--assistant"><span className="message__role">Qaneris</span>
     <div className="run-card__head"><span className="status-pill" aria-live="polite">{STATUS_LABELS[status] || (run ? status : "历史回答")}</span>
       {view?.kind === "diagnostic" ? <span>诊断分析</span> : view?.kind === "federated" ? <span>联合分析</span> : null}</div>
     {message?.content ? <p className="message__content">{message.content}</p> : view?.answer ? <p className="message__content">{view.answer}</p> : null}
@@ -93,8 +92,8 @@ export function MessageList({ messages, runs, events, latestRunId, onLoadRun, on
           ? <article className="message message--user" key={message.message_id}><span className="message__role">{message.message_kind === "clarification" ? "你的确认" : "你"}</span><p className="message__content">{message.content}</p></article>
           : message.message_id === lastAssistant?.message_id
             ? <RunCard key={message.message_id} runId={turn.runId} run={runs[turn.runId]} events={events[turn.runId] || []} message={message}
-                onLoadRun={onLoadRun} onAction={onAction} busy={busy} canRescan={canRescan} />
-            : <article className="message message--assistant" key={message.message_id}><span className="message__role">SmartData · 澄清</span><p className="message__content">{message.content}</p></article>)}
+                onLoadRun={onLoadRun} onAction={onAction} busy={busy} />
+            : <article className="message message--assistant" key={message.message_id}><span className="message__role">Qaneris · 澄清</span><p className="message__content">{message.content}</p></article>)}
         {!lastAssistant ? <RunCard runId={turn.runId} run={runs[turn.runId]} events={events[turn.runId] || []}
           onLoadRun={onLoadRun} onAction={onAction} busy={busy} canRescan={canRescan} /> : null}
       </div>;

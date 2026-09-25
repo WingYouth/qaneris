@@ -1,4 +1,4 @@
-# SmartData Skill 行为示例
+# Qaneris Skill 行为示例
 
 ## Direct questions
 
@@ -36,7 +36,7 @@
 
 - **不要把 `abc123` 传给任何 MCP Tool，也不要回显它。**
 - 说明：MCP 只消费 `SecretReference`，不接收原始凭据。
-- 引导用户先通过现有安全入口创建凭据：`smartdata credential add --kind password`（或 HTTP API `POST /api/credentials`），拿到 `sec_...` 形式的 secret id。
+- 引导用户先通过现有安全入口创建凭据：`qaneris credential add --kind password`（或 HTTP API `POST /api/credentials`），拿到 `sec_...` 形式的 secret id。
 - 拿到引用后再按上一节的 Test → Create → Scan 继续。
 - Web 凭据界面尚未可用，不要说“去 Web 上传”。
 
@@ -64,20 +64,20 @@
 用户：“销售额是多少？”
 
 - `ask_data` 返回 `status = clarification_required`：这是正常产品结果，不是失败。
-- 把 SmartData 提出的问题原样转给用户；如果带 `options`，展示最小必要选项。
+- 把 Qaneris 提出的问题原样转给用户；如果带 `options`，展示最小必要选项。
 - 不要自己猜“全部时间”“订单日期”“支付日期”，也不要选一个选项后继续执行。
 - 用户回答后，带着原问题回到 `ask_data`。
 
 ## Ask progress
 
 - 可能看到 `accepted → grounding_ready → query_ready → execution_started → result_ready → done`。
-- 这些是执行状态：SmartData 在理解问题、匹配数据结构、生成安全查询、执行查询。
+- 这些是执行状态：Qaneris 在理解问题、匹配数据结构、生成安全查询、执行查询。
 - 不是模型思维链，不要说“AI 正在推理”。
 - 客户端没有展示 progress 时，问数照常执行，这不代表失败。
 
 ## Unsupported or unsafe requests
 
-- “修改订单状态”：拒绝执行；SmartData 只提供只读问数。
+- “修改订单状态”：拒绝执行；Qaneris 只提供只读问数。
 - “删除重复客户”：拒绝执行，不提交 SQL。
 - “把华东和华南两个库的数字加起来”：当前路演范围不支持跨数据源 Join；说明限制，不要分别查询后自行拼接答案。
 - 工具返回无数据：说明指定范围内没有记录，不把无数据解释为数值零，除非结果明确返回零。

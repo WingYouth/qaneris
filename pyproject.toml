@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "smartdata-platform"
+name = "qaneris-platform"
 version = "0.1.0"
 description = "Enterprise multi-source conversational analytics platform"
 readme = "README.md"
@@ -24,6 +24,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3,<9", "ruff>=0.8,<1"]
+# The interactive session (`qaneris shell`) is the only surface that needs these. They stay
+# optional so the core install, the API, the MCP server and every one-shot command keep working
+# without them; `shell` reports the exact install command when they are absent.
+shell = ["prompt_toolkit>=3.0,<4", "rich>=13,<16"]
 sql = [
   "sqlalchemy>=2,<3",
   "psycopg[binary]>=3.2,<4",
@@ -45,13 +49,14 @@ milvus = ["pymilvus>=2.5,<3"]
 qdrant = ["qdrant-client>=1.13,<2"]
 
 [project.scripts]
-smartdata = "smartdata.cli.main:main"
-smartdata-api = "smartdata.interfaces.api.app:main"
-smartdata-mcp = "smartdata.interfaces.mcp.server:main"
-smartdata-scan = "smartdata.cli.scan:main"
+qaneris = "qaneris.cli.main:main"
+qaneris-api = "qaneris.interfaces.api.app:main"
+qaneris-mcp = "qaneris.interfaces.mcp.server:main"
+qaneris-scan = "qaneris.cli.scan:main"
+qaneris-shell = "qaneris.cli.shell:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["smartdata"]
+packages = ["qaneris"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

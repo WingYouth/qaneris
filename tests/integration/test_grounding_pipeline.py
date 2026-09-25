@@ -8,14 +8,14 @@ from datetime import UTC, datetime
 import pytest
 from _neo4j_fake import FakeNeo4jDriver, graph_reader, graph_store
 
-from smartdata.adapters import create_adapter
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.contracts import DatasetInfo, Datasource, FieldInfo
-from smartdata.contracts.semantic import BusinessFilter, BusinessQuery
-from smartdata.graph import GraphStructureRequest
-from smartdata.scan import ScanGraphBuilder, ScanService
-from smartdata.semantic import (
+from qaneris.adapters import create_adapter
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.contracts import DatasetInfo, Datasource, FieldInfo
+from qaneris.contracts.semantic import BusinessFilter, BusinessQuery
+from qaneris.graph import GraphStructureRequest
+from qaneris.scan import ScanGraphBuilder, ScanService
+from qaneris.semantic import (
     GraphSemanticRetriever,
     SemanticAsset,
     SemanticGrounder,
@@ -447,7 +447,7 @@ def test_service_retrieve_then_ground_chain(tmp_path) -> None:
     database = tmp_path / "sales.db"
     catalog_path = tmp_path / "catalog.db"
     registry_with(sales_assets(reader), catalog_path)
-    service = SmartDataService(Catalog(catalog_path), graph_reader=reader)
+    service = QanerisService(Catalog(catalog_path), graph_reader=reader)
     query = BusinessQuery(
         question="地区=华东的销售额",
         objective="lookup",

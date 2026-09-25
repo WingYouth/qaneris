@@ -1,7 +1,7 @@
-"""CLI contract tests for ``smartdata ask --stream`` (RS-CLI-01B).
+"""CLI contract tests for ``qaneris ask --stream`` (RS-CLI-01B).
 
 These lock the interface contract of the streaming modes: that the CLI consumes the unified
-``AskEvent`` contract from ``SmartDataService.ask_stream()``, that human mode prints only stages the
+``AskEvent`` contract from ``QanerisService.ask_stream()``, that human mode prints only stages the
 pipeline really reported, that ``--stream --json`` writes strict JSONL on stdout and nothing else,
 that ``done`` stays last, and that the exit codes match the existing CLI convention.
 
@@ -19,14 +19,14 @@ from unittest.mock import Mock
 
 import pytest
 
-from smartdata.application.service import SmartDataService
-from smartdata.cli import ask as ask_cli
-from smartdata.cli import main as cli
-from smartdata.cli import source
-from smartdata.common.errors import DatasourceNotFoundError
-from smartdata.contracts.api import AskRequest, AskResponse, AskStatus, ErrorDetail
-from smartdata.contracts.ask_events import AskEvent, AskEventType
-from smartdata.contracts.query import (
+from qaneris.application.service import QanerisService
+from qaneris.cli import ask as ask_cli
+from qaneris.cli import main as cli
+from qaneris.cli import source
+from qaneris.common.errors import DatasourceNotFoundError
+from qaneris.contracts.api import AskRequest, AskResponse, AskStatus, ErrorDetail
+from qaneris.contracts.ask_events import AskEvent, AskEventType
+from qaneris.contracts.query import (
     AggregateFunction,
     ExecutionEvidence,
     GroundedDataObjectRef,
@@ -213,13 +213,13 @@ def error_stream() -> list[AskEvent]:
 
 def installed(monkeypatch: pytest.MonkeyPatch, service: Any) -> Mock:
     constructor = Mock(return_value=service)
-    monkeypatch.setattr(source, "SmartDataService", constructor)
+    monkeypatch.setattr(source, "QanerisService", constructor)
     return constructor
 
 
 def streaming(monkeypatch: pytest.MonkeyPatch, events: list[AskEvent]) -> Mock:
     ask_stream = Mock(return_value=iter(events))
-    installed(monkeypatch, Mock(spec=SmartDataService, ask_stream=ask_stream))
+    installed(monkeypatch, Mock(spec=QanerisService, ask_stream=ask_stream))
     return ask_stream
 
 
@@ -267,7 +267,7 @@ def test_streaming_never_calls_the_synchronous_entry_point(
 ) -> None:
     ask = Mock(side_effect=AssertionError("streaming must not call the synchronous ask"))
     ask_stream = Mock(return_value=iter(completed_stream(completed_response())))
-    installed(monkeypatch, Mock(spec=SmartDataService, ask=ask, ask_stream=ask_stream))
+    installed(monkeypatch, Mock(spec=QanerisService, ask=ask, ask_stream=ask_stream))
 
     assert run(monkeypatch, command())[0] == 0
     ask.assert_not_called()
@@ -278,7 +278,7 @@ def test_sync_mode_still_never_calls_the_streaming_entry_point(
 ) -> None:
     ask = Mock(return_value=completed_response())
     ask_stream = Mock(side_effect=AssertionError("sync must not consume the stream"))
-    installed(monkeypatch, Mock(spec=SmartDataService, ask=ask, ask_stream=ask_stream))
+    installed(monkeypatch, Mock(spec=QanerisService, ask=ask, ask_stream=ask_stream))
 
     assert run(monkeypatch, ["ask", QUESTION])[0] == 0
     ask_stream.assert_not_called()
@@ -379,7 +379,7 @@ def test_a_stream_that_breaks_outside_the_contract_emits_no_fabricated_event(
         yield event(AskEventType.ACCEPTED, 1, {"stage": "accepted"})
         raise RuntimeError(f"provider stream died {SECRET_TOKEN}")
 
-    installed(monkeypatch, Mock(spec=SmartDataService, ask_stream=Mock(side_effect=broken)))
+    installed(monkeypatch, Mock(spec=QanerisService, ask_stream=Mock(side_effect=broken)))
     code, stdout, stderr = run(monkeypatch, command())
     assert code == 1
     # The first stage was already printed, so the CLI emits as it consumes rather than at exit.
@@ -471,7 +471,7 @@ def test_jsonl_stdout_stays_pure_when_the_pipeline_prints_noise(
         )
         print("provider debug noise")
 
-    installed(monkeypatch, Mock(spec=SmartDataService, ask_stream=Mock(side_effect=noisy)))
+    installed(monkeypatch, Mock(spec=QanerisService, ask_stream=Mock(side_effect=noisy)))
     code, stdout, stderr = run(monkeypatch, command("--json"))
     assert code == 0
     documents = jsonl(stdout)  # every stdout line is a complete JSON document
@@ -551,13 +551,13 @@ def test_human_stream_never_prints_private_reasoning_or_credentials(
 def test_stream_usage_errors_exit_two(
     arguments: list[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    installed(monkeypatch, Mock(spec=SmartDataService))
+    installed(monkeypatch, Mock(spec=QanerisService))
     code, _, _ = run(monkeypatch, arguments)
     assert code == 2
 
 
 def test_stream_jsonl_usage_error_keeps_stdout_pure(monkeypatch: pytest.MonkeyPatch) -> None:
-    installed(monkeypatch, Mock(spec=SmartDataService))
+    installed(monkeypatch, Mock(spec=QanerisService))
     code, stdout, stderr = run(monkeypatch, command("--json", "--max-rows", "5000"))
     assert code == 2
     # No event exists yet, so stdout stays empty and the document is reported on stderr.
@@ -575,7 +575,7 @@ def test_product_exception_before_the_stream_is_reported_without_a_traceback(
 ) -> None:
     installed(
         monkeypatch,
-        Mock(spec=SmartDataService, ask_stream=Mock(side_effect=DatasourceNotFoundError("gone"))),
+        Mock(spec=QanerisService, ask_stream=Mock(side_effect=DatasourceNotFoundError("gone"))),
     )
     code, stdout, stderr = run(monkeypatch, command())
     assert code == 1

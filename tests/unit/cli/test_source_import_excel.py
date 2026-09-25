@@ -1,4 +1,4 @@
-"""CLI contract tests for ``smartdata source import-excel`` (EXCEL-01B).
+"""CLI contract tests for ``qaneris source import-excel`` (EXCEL-01B).
 
 These lock the interface contract only: argument wiring, the single Application Service call, the
 human and JSON output shapes, the stable Excel error codes and the exit-code boundary. Ingestion
@@ -16,11 +16,11 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.cli import main as cli
-from smartdata.cli import source
-from smartdata.ingestion.excel import (
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.cli import main as cli
+from qaneris.cli import source
+from qaneris.ingestion.excel import (
     ExcelColumnSummary,
     ExcelErrorCode,
     ExcelImportRequest,
@@ -79,19 +79,19 @@ def imported(tmp_path: Path, **changes: Any) -> ExcelImportResult:
 def installed(monkeypatch: pytest.MonkeyPatch, service: Any) -> Mock:
     """Install the service the CLI will build and return the constructor spy."""
     constructor = Mock(return_value=service)
-    monkeypatch.setattr(source, "SmartDataService", constructor)
+    monkeypatch.setattr(source, "QanerisService", constructor)
     return constructor
 
 
 def serving(monkeypatch: pytest.MonkeyPatch, result: ExcelImportResult) -> Mock:
     import_excel = Mock(return_value=result)
-    installed(monkeypatch, Mock(spec=SmartDataService, import_excel=import_excel))
+    installed(monkeypatch, Mock(spec=QanerisService, import_excel=import_excel))
     return import_excel
 
 
 def refusing(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None:
     import_excel = Mock(side_effect=error)
-    installed(monkeypatch, Mock(spec=SmartDataService, import_excel=import_excel))
+    installed(monkeypatch, Mock(spec=QanerisService, import_excel=import_excel))
 
 
 def command(*extra: str) -> list[str]:
@@ -131,7 +131,7 @@ def test_import_excel_help_documents_the_options(capsys) -> None:
     ],
 )
 def test_name_reaches_the_request(arguments, expected, tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     import_excel = serving(monkeypatch, imported(tmp_path))
 
     assert cli.main(command(*arguments)) == 0
@@ -142,7 +142,7 @@ def test_name_reaches_the_request(arguments, expected, tmp_path, monkeypatch) ->
 
 
 def test_workspace_reaches_the_request(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     import_excel = serving(monkeypatch, imported(tmp_path, workspace_id="roadshow"))
 
     assert cli.main(command("--workspace", "roadshow")) == 0
@@ -156,12 +156,12 @@ def test_cli_calls_only_import_excel_on_a_normally_configured_service(
     """The CLI orchestrates the Application Service; it never picks a second ingestion path.
 
     The constructor assertion is the important one: no fake graph, no ``NullGraphReader`` and no
-    private pipeline may be injected, and the catalog must follow the same ``SMARTDATA_CATALOG``
+    private pipeline may be injected, and the catalog must follow the same ``QANERIS_CATALOG``
     convention the API, the MCP server and ``doctor`` already use.
     """
     catalog_path = tmp_path / "catalog.db"
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(catalog_path))
-    service = Mock(spec=SmartDataService, import_excel=Mock(return_value=imported(tmp_path)))
+    monkeypatch.setenv("QANERIS_CATALOG", str(catalog_path))
+    service = Mock(spec=QanerisService, import_excel=Mock(return_value=imported(tmp_path)))
     constructor = installed(monkeypatch, service)
 
     assert cli.main(command("--name", "Sales Workbook", "--workspace", "default", "--json")) == 0
@@ -212,7 +212,7 @@ def test_import_excel_does_not_reach_past_the_application_contract() -> None:
 
 
 def test_human_output_reports_identity_and_artifact(tmp_path, capsys, monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     serving(monkeypatch, imported(tmp_path, warnings=["工作表 'hidden' 已跳过，原因：hidden"]))
 
     exit_code = cli.main(command("--name", "Roadshow Excel Orders"))
@@ -232,7 +232,7 @@ def test_human_output_reports_identity_and_artifact(tmp_path, capsys, monkeypatc
 
 
 def test_human_output_omits_the_optional_name_when_not_given(tmp_path, capsys, monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     serving(monkeypatch, imported(tmp_path))
 
     assert cli.main(command()) == 0
@@ -240,7 +240,7 @@ def test_human_output_omits_the_optional_name_when_not_given(tmp_path, capsys, m
 
 
 def test_human_output_hides_internal_file_locations(tmp_path, capsys, monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     serving(monkeypatch, imported(tmp_path))
 
     assert cli.main(command()) == 0
@@ -251,7 +251,7 @@ def test_human_output_hides_internal_file_locations(tmp_path, capsys, monkeypatc
 
 
 def test_json_output_is_pure_and_stable(tmp_path, capsys, monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     result = imported(tmp_path, warnings=["工作表 'hidden' 已跳过，原因：hidden"])
     serving(monkeypatch, result)
 
@@ -281,14 +281,14 @@ def test_json_output_is_pure_and_stable(tmp_path, capsys, monkeypatch) -> None:
 def test_json_output_keeps_incidental_stdout_out_of_the_document(
     tmp_path, capsys, monkeypatch
 ) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     result = imported(tmp_path)
 
     def noisy(request: ExcelImportRequest) -> ExcelImportResult:
         print("driver warning")
         return result
 
-    installed(monkeypatch, Mock(spec=SmartDataService, import_excel=Mock(side_effect=noisy)))
+    installed(monkeypatch, Mock(spec=QanerisService, import_excel=Mock(side_effect=noisy)))
 
     assert cli.main(command("--json")) == 0
     captured = capsys.readouterr()
@@ -325,7 +325,7 @@ def formula_error() -> ExcelIngestionError:
     ],
 )
 def test_stable_error_code_survives_as_json(error, code, tmp_path, capsys, monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     refusing(monkeypatch, error)
 
     exit_code = cli.main(command("--json"))
@@ -341,7 +341,7 @@ def test_stable_error_code_survives_as_json(error, code, tmp_path, capsys, monke
 
 
 def test_error_json_carries_the_safe_location(tmp_path, capsys, monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     refusing(monkeypatch, formula_error())
 
     assert cli.main(command("--json")) == 1
@@ -355,7 +355,7 @@ def test_error_json_carries_the_safe_location(tmp_path, capsys, monkeypatch) -> 
 def test_error_json_has_stable_keys_when_no_location_is_known(
     tmp_path, capsys, monkeypatch
 ) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     refusing(monkeypatch, ExcelIngestionError(ExcelErrorCode.SCAN_FAILED, "扫描失败"))
 
     assert cli.main(command("--json")) == 1
@@ -366,7 +366,7 @@ def test_error_json_has_stable_keys_when_no_location_is_known(
 
 
 def test_error_human_output_goes_to_stderr(tmp_path, capsys, monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     refusing(monkeypatch, formula_error())
 
     assert cli.main(command()) == 1
@@ -381,7 +381,7 @@ def test_error_human_output_goes_to_stderr(tmp_path, capsys, monkeypatch) -> Non
 
 
 def test_unexpected_exception_keeps_the_safe_boundary(tmp_path, capsys, monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_CATALOG", str(tmp_path / "catalog.db"))
+    monkeypatch.setenv("QANERIS_CATALOG", str(tmp_path / "catalog.db"))
     refusing(monkeypatch, RuntimeError("provider rejected unit-super-secret"))
 
     assert cli.main(command("--json")) == 1

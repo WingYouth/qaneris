@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from smartdata.catalog import Catalog
-from smartdata.contracts import (
+from qaneris.catalog import Catalog
+from qaneris.contracts import (
     AuthenticationConfig,
     AuthenticationMethod,
     CompanyDataProfile,
@@ -33,10 +33,10 @@ from smartdata.contracts import (
     SecretReference,
     SecureDatasourceCreate,
 )
-from smartdata.initialization import DatabaseInitializer
-from smartdata.profiling import ProfileBuilder
-from smartdata.querying import QueryPreparationPipeline
-from smartdata.querying.retrieval import ProfileRetriever, RuleBasedQueryIntentParser
+from qaneris.initialization import DatabaseInitializer
+from qaneris.profiling import ProfileBuilder
+from qaneris.querying import QueryPreparationPipeline
+from qaneris.querying.retrieval import ProfileRetriever, RuleBasedQueryIntentParser
 
 
 def test_secure_connection_profile_persists_only_secret_reference(tmp_path) -> None:

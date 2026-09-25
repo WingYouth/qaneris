@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from smartdata.common.errors import GraphUnavailableError
-from smartdata.contracts import SemanticAssetType
-from smartdata.contracts.semantic import BusinessQuery
-from smartdata.graph import (
+from qaneris.common.errors import GraphUnavailableError
+from qaneris.contracts import SemanticAssetType
+from qaneris.contracts.semantic import BusinessQuery
+from qaneris.graph import (
     GraphBindingReference,
     GraphDataObject,
     GraphDatasource,
@@ -17,7 +17,7 @@ from smartdata.graph import (
     GraphStructureRequest,
     NullGraphReader,
 )
-from smartdata.semantic import (
+from qaneris.semantic import (
     GraphSemanticRetriever,
     SemanticAsset,
     SemanticRetrievalPath,

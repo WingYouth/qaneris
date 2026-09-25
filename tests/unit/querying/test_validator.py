@@ -1,6 +1,6 @@
 import pytest
 
-from smartdata.querying.validation.read_only import UnsafeQueryError, validate_read_only_query
+from qaneris.querying.validation.read_only import UnsafeQueryError, validate_read_only_query
 
 
 @pytest.mark.parametrize(

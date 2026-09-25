@@ -1,5 +1,5 @@
 interface:
-  display_name: "SmartData 数据问答"
-  short_description: "通过只读 SmartData 数据源回答业务指标与趋势问题"
+  display_name: "Qaneris 数据问答"
+  short_description: "通过只读 Qaneris 数据源回答业务指标与趋势问题"
   brand_color: "#087E72"
-  default_prompt: "Use $smartdata-analytics to answer this business data question from my connected source."
+  default_prompt: "Use $qaneris-analytics to answer this business data question from my connected source."

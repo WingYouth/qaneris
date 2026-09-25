@@ -21,16 +21,16 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-from smartdata.catalog import Catalog
-from smartdata.common.errors import (
+from qaneris.catalog import Catalog
+from qaneris.common.errors import (
     CertificateKeyMismatchError,
     CertificateValidationError,
     ManagedSecretInUseError,
     ManagedSecretNotFoundError,
 )
-from smartdata.connections.credential_service import CredentialService
-from smartdata.connections.managed_store import ManagedCredentialStore
-from smartdata.contracts.connection import (
+from qaneris.connections.credential_service import CredentialService
+from qaneris.connections.managed_store import ManagedCredentialStore
+from qaneris.contracts.connection import (
     AuthenticationConfig,
     AuthenticationMethod,
     ConnectionEndpoint,
@@ -40,8 +40,8 @@ from smartdata.contracts.connection import (
     SecureDatasourceCreate,
     TLSConfig,
 )
-from smartdata.contracts.credentials import ManagedSecretKind
-from smartdata.contracts.datasource import DatasourceKind
+from qaneris.contracts.credentials import ManagedSecretKind
+from qaneris.contracts.datasource import DatasourceKind
 
 PASSWORD_MARKER = "UNIQUE_PASSWORD_MARKER"
 TOKEN_MARKER = "UNIQUE_TOKEN_MARKER"
@@ -52,7 +52,7 @@ KEY_PASSWORD_MARKER = "UNIQUE_KEY_PASSWORD_MARKER"
 def certificate(*, ca: bool) -> tuple[x509.Certificate, rsa.RSAPrivateKey]:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     now = dt.datetime.now(dt.UTC)
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "SmartData Test CA" if ca else "client")])
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Qaneris Test CA" if ca else "client")])
     builder = (
         x509.CertificateBuilder()
         .subject_name(name)
@@ -116,8 +116,8 @@ def stored_secret_files(service: CredentialService) -> list[Path]:
 def service(tmp_path: Path) -> CredentialService:
     store = ManagedCredentialStore.from_environment(
         {
-            "SMARTDATA_SECRET_STORE_DIR": str(tmp_path / "secrets"),
-            "SMARTDATA_MASTER_KEY": ManagedCredentialStore.generate_master_key(),
+            "QANERIS_SECRET_STORE_DIR": str(tmp_path / "secrets"),
+            "QANERIS_MASTER_KEY": ManagedCredentialStore.generate_master_key(),
         }
     )
     return CredentialService(store, Catalog(tmp_path / "catalog.db"))
@@ -194,7 +194,7 @@ def test_a_certificate_is_normalized_before_it_is_stored(
 
     stored = service.store.resolve(info.id)
     assert stored.startswith("-----BEGIN CERTIFICATE-----")
-    assert info.metadata["subject"] == ("CN=SmartData Test CA" if is_ca else "CN=client")
+    assert info.metadata["subject"] == ("CN=Qaneris Test CA" if is_ca else "CN=client")
     assert "sha256_fingerprint" in info.metadata
     assert "-----BEGIN" not in json.dumps(info.metadata)
 

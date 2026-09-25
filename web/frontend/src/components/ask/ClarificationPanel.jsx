@@ -35,7 +35,7 @@ export function ClarificationPanel({ clarification, onUseOption }) {
         ))}
       </ol>
       <p className="clarification-panel__hint">
-        请明确要查询的指标、维度或时间范围，然后重新发问。SmartData 不会自行猜测业务含义或数据库字段。
+        请明确要查询的指标、维度或时间范围，然后重新发问。Qaneris 不会自行猜测业务含义或数据库字段。
       </p>
     </div>
   );

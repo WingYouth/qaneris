@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from smartdata.contracts import (
+from qaneris.contracts import (
     ConstraintInfo,
     DatasetInfo,
     Datasource,
@@ -10,7 +10,7 @@ from smartdata.contracts import (
     IndexInfo,
     RelationInfo,
 )
-from smartdata.scan import ScanEdgeType, ScanGraphBuilder, ScanGraphValidator, ScanNodeKind
+from qaneris.scan import ScanEdgeType, ScanGraphBuilder, ScanGraphValidator, ScanNodeKind
 
 
 def _datasource() -> Datasource:

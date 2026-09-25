@@ -1,6 +1,6 @@
 {
   "dataset": "sales_2026_07",
-  "description": "SmartData 2026 年 7 月 SQLite 销售标准问答契约",
+  "description": "Qaneris 2026 年 7 月 SQLite 销售标准问答契约",
   "cases": [
     {
       "id": "orders-count",

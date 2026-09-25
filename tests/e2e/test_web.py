@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from smartdata.interfaces.api.app import create_app
+from qaneris.interfaces.api.app import create_app
 
 
 def test_web_workbench_and_static_assets_are_served(tmp_path: Path) -> None:

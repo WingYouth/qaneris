@@ -15,7 +15,7 @@
           "username": "readonly",
           "password": {
             "provider": "environment",
-            "identifier": "SMARTDATA_SQLSERVER_PASSWORD"
+            "identifier": "QANERIS_SQLSERVER_PASSWORD"
           }
         }
       }

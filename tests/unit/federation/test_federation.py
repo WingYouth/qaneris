@@ -5,19 +5,19 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from smartdata.contracts import AskResponse, NormalizedResult
-from smartdata.contracts.query import GroundedFieldRef, GroundedQueryPlan
-from smartdata.federation.governance import FederationFailure
-from smartdata.federation.merger import ControlledMerger
-from smartdata.federation.models import (
+from qaneris.contracts import AskResponse, NormalizedResult
+from qaneris.contracts.query import GroundedFieldRef, GroundedQueryPlan
+from qaneris.federation.governance import FederationFailure
+from qaneris.federation.merger import ControlledMerger
+from qaneris.federation.models import (
     ExecutionScope,
     FederatedPlanDraft,
     JoinMapping,
     JoinMappingStatus,
     MergePlan,
 )
-from smartdata.federation.validator import FederatedPlanValidator
-from smartdata.interfaces.api.app import create_app
+from qaneris.federation.validator import FederatedPlanValidator
+from qaneris.interfaces.api.app import create_app
 
 
 def scope(**changes):

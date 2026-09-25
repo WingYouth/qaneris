@@ -2,7 +2,7 @@
 
 These tests cover the interface layer only - the Core's own 117 ingestion cases already live in
 ``tests/unit/ingestion/test_excel_ingestion.py`` and are not repeated here. What is locked here is
-what the browser boundary adds: exactly one call into ``SmartDataService.import_excel()``, a
+what the browser boundary adds: exactly one call into ``QanerisService.import_excel()``, a
 temporary upload that never outlives the request, a response that never names an internal location,
 and refusals that keep their stable Excel code.
 
@@ -31,18 +31,18 @@ import pytest
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.common.errors import GraphUnavailableError
-from smartdata.graph import GraphDatasource, GraphStructure, GraphStructureRequest
-from smartdata.ingestion.excel import (
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.common.errors import GraphUnavailableError
+from qaneris.graph import GraphDatasource, GraphStructure, GraphStructureRequest
+from qaneris.ingestion.excel import (
     DEFAULT_EXCEL_POLICY,
     ExcelImportRequest,
     ExcelImportResult,
     ExcelIngestionError,
 )
-from smartdata.interfaces.api import excel as excel_boundary
-from smartdata.interfaces.api.app import create_app
+from qaneris.interfaces.api import excel as excel_boundary
+from qaneris.interfaces.api.app import create_app
 
 ORDERS: list[list[Any]] = [
     ["order_id", "order_date", "region", "amount", "status"],
@@ -128,7 +128,7 @@ class RecordingService:
 @pytest.fixture(autouse=True)
 def artifact_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Keep both the managed artifact root and the staging root inside the test."""
-    monkeypatch.setenv("SMARTDATA_ARTIFACT_ROOT", str(tmp_path / "artifacts"))
+    monkeypatch.setenv("QANERIS_ARTIFACT_ROOT", str(tmp_path / "artifacts"))
     return tmp_path / "artifacts"
 
 
@@ -175,7 +175,7 @@ def post_excel(client: TestClient, data: bytes, filename: str = "orders.xlsx", *
 def ready_result(tmp_path: Path) -> ExcelImportResult:
     """A real READY result: the real Core against a graph backend that records the publication."""
     graph = FakeGraph()
-    service = SmartDataService(
+    service = QanerisService(
         Catalog(tmp_path / "catalog.db"), graph_store=graph, graph_reader=graph
     )
     source = tmp_path / "seed.xlsx"
@@ -183,9 +183,9 @@ def ready_result(tmp_path: Path) -> ExcelImportResult:
     return service.import_excel(ExcelImportRequest(file_path=str(source)))
 
 
-def composed_service(tmp_path: Path, reader: Any = None) -> SmartDataService:
+def composed_service(tmp_path: Path, reader: Any = None) -> QanerisService:
     graph = FakeGraph()
-    return SmartDataService(
+    return QanerisService(
         Catalog(tmp_path / "catalog.db"), graph_store=graph, graph_reader=reader or graph
     )
 
@@ -483,7 +483,7 @@ def test_upload_within_the_policy_limit_reaches_the_core(
 
 
 def test_unexpected_failure_is_redacted(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SMARTDATA_PROBE_CREDENTIAL", "top-secret-value")
+    monkeypatch.setenv("QANERIS_PROBE_CREDENTIAL", "top-secret-value")
     recorder = RecordingService(error=RuntimeError("unexpected top-secret-value"))
     client = build_client(tmp_path, recorder, raise_server_exceptions=False)
 

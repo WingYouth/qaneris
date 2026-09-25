@@ -4,12 +4,12 @@ import json
 import sqlite3
 from pathlib import Path
 
-from smartdata.application.service import SmartDataService
-from smartdata.cli import main as cli
-from smartdata.cli import source as source_cli
-from smartdata.contracts import Neo4jValidation
-from smartdata.graph.ports import NullGraphReader
-from smartdata.scanning import MultiDatabaseScanRunner
+from qaneris.application.service import QanerisService
+from qaneris.cli import main as cli
+from qaneris.cli import source as source_cli
+from qaneris.contracts import Neo4jValidation
+from qaneris.graph.ports import NullGraphReader
+from qaneris.scanning import MultiDatabaseScanRunner
 
 
 class RecordingGraphStore:
@@ -91,7 +91,7 @@ def test_cli_scans_two_sources_into_distinct_snapshots_in_one_run(
     graph_store = RecordingGraphStore()
 
     def service_factory(catalog):
-        return SmartDataService(
+        return QanerisService(
             catalog,
             model=object(),
             graph_store=graph_store,
@@ -99,13 +99,13 @@ def test_cli_scans_two_sources_into_distinct_snapshots_in_one_run(
         )
 
     runner = MultiDatabaseScanRunner(
-        artifact_base=tmp_path / "SmartDataArtifacts" / "scan-runs",
+        artifact_base=tmp_path / "QanerisArtifacts" / "scan-runs",
         service_factory=service_factory,
         graph_validator=PassingGraphValidator(),
     )
     monkeypatch.setattr(source_cli, "MultiDatabaseScanRunner", lambda: runner)
-    monkeypatch.delenv("SMARTDATA_ENV_FILE", raising=False)
-    monkeypatch.delenv("SMARTDATA_PROFILE_DIR", raising=False)
+    monkeypatch.delenv("QANERIS_ENV_FILE", raising=False)
+    monkeypatch.delenv("QANERIS_PROFILE_DIR", raising=False)
 
     exit_code = cli.main(["source", "scan", "--config", str(config), "--json"])
 

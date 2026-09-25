@@ -1,4 +1,4 @@
-from smartdata.graph.schema import GRAPH_INDEXES, NODE_CONSTRAINTS
+from qaneris.graph.schema import GRAPH_INDEXES, NODE_CONSTRAINTS
 
 
 def test_every_scan_node_label_has_an_id_uniqueness_constraint() -> None:

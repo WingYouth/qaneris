@@ -15,21 +15,21 @@ from typing import Any
 import pytest
 from _neo4j_fake import FakeNeo4jDriver, graph_reader, graph_store
 
-from smartdata.adapters import create_adapter
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.common.errors import ExecutionValidationError, QuerySafetyError
-from smartdata.contracts import Datasource, NativeQuery, QueryLanguage
-from smartdata.contracts.query import (
+from qaneris.adapters import create_adapter
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.common.errors import ExecutionValidationError, QuerySafetyError
+from qaneris.contracts import Datasource, NativeQuery, QueryLanguage
+from qaneris.contracts.query import (
     AggregateFunction,
     FilterOperator,
     QueryResultType,
     TimeRange,
     TimeSpec,
 )
-from smartdata.contracts.semantic import BusinessFilter, BusinessQuery, RankingSpec
-from smartdata.scan import ScanService
-from smartdata.semantic import (
+from qaneris.contracts.semantic import BusinessFilter, BusinessQuery, RankingSpec
+from qaneris.scan import ScanService
+from qaneris.semantic import (
     GraphSemanticRetriever,
     SemanticAsset,
     SemanticGrounder,
@@ -114,7 +114,7 @@ def asset(
 
 
 def graph_identity(reader, object_name: str, field_name: str):
-    from smartdata.graph import GraphStructureRequest
+    from qaneris.graph import GraphStructureRequest
 
     structure = reader.read_structure(GraphStructureRequest(datasource_id=DATASOURCE_ID))
     data_object = structure.object_by_name(DATASOURCE_ID, object_name)
@@ -226,7 +226,7 @@ def _grounded_plan(driver, reader, catalog_path, query: BusinessQuery, **build):
     retrieval = GraphSemanticRetriever(reader, registry).retrieve(query, limit=50)
     grounding = SemanticGrounder().ground(query, retrieval)
     catalog = Catalog(catalog_path)
-    service = SmartDataService(catalog, graph_reader=reader)
+    service = QanerisService(catalog, graph_reader=reader)
     context = service.build_query_context(grounding, **build)
     plan = service.plan_grounded_query(context)
     return service, grounding, context, plan
@@ -269,7 +269,7 @@ def test_full_pipeline_returns_typed_result_and_safe_evidence(tmp_path) -> None:
     captured: dict[str, Any] = {}
 
     def fake_execute(_self, native, _datasource, _max_rows):
-        from smartdata.contracts import (
+        from qaneris.contracts import (
             ExecutionEvidence,
             GroundedExecution,
             GroundedQueryResult,
@@ -297,7 +297,7 @@ def test_full_pipeline_returns_typed_result_and_safe_evidence(tmp_path) -> None:
         )
         return GroundedExecution(result=result, evidence=evidence)
 
-    from smartdata.querying.execution import GroundedQueryExecutor
+    from qaneris.querying.execution import GroundedQueryExecutor
 
     monkey = pytest.MonkeyPatch()
     monkey.setattr(GroundedQueryExecutor, "execute", fake_execute)
@@ -364,7 +364,7 @@ def test_stale_revision_is_refused_before_executor_runs(tmp_path) -> None:
     class _StaleReader:
         def read_structure(self, request):
             structure = real_reader.read_structure(request)
-            from smartdata.graph import GraphDatasource
+            from qaneris.graph import GraphDatasource
 
             structure.datasources = [
                 GraphDatasource(
@@ -411,7 +411,7 @@ def test_same_revision_runs_through(tmp_path) -> None:
     )
     assert plan.scan_version == version
     # No monkey-patch; the published reader already reports the same version.
-    from smartdata.contracts import (
+    from qaneris.contracts import (
         ExecutionEvidence,
         GroundedExecution,
         GroundedQueryResult,
@@ -440,7 +440,7 @@ def test_same_revision_runs_through(tmp_path) -> None:
             ),
         )
 
-    from smartdata.querying.execution import GroundedQueryExecutor
+    from qaneris.querying.execution import GroundedQueryExecutor
 
     monkey = pytest.MonkeyPatch()
     monkey.setattr(GroundedQueryExecutor, "execute", fake_execute)
@@ -531,7 +531,7 @@ def test_forged_native_query_is_irrelevant_to_the_orchestrator(tmp_path) -> None
 
     def fake_execute(_self, native, _datasource, _max_rows):
         seen_command.append(native.command)
-        from smartdata.contracts import (
+        from qaneris.contracts import (
             ExecutionEvidence,
             GroundedExecution,
             GroundedQueryResult,
@@ -559,7 +559,7 @@ def test_forged_native_query_is_irrelevant_to_the_orchestrator(tmp_path) -> None
             ),
         )
 
-    from smartdata.querying.execution import GroundedQueryExecutor
+    from qaneris.querying.execution import GroundedQueryExecutor
 
     monkey = pytest.MonkeyPatch()
     monkey.setattr(GroundedQueryExecutor, "execute", fake_execute)
@@ -579,12 +579,12 @@ def test_forged_native_query_is_irrelevant_to_the_orchestrator(tmp_path) -> None
 
 def test_compiler_refuses_set_in_filter() -> None:
     """``IN`` with a ``set`` value would be non-deterministic; the compiler rejects it."""
-    from smartdata.contracts import (
+    from qaneris.contracts import (
         GroundedDataObjectRef,
         GroundedQueryPlan,
         PlanFilter,
     )
-    from smartdata.querying.generation import GroundedSQLCompiler
+    from qaneris.querying.generation import GroundedSQLCompiler
 
     plan = GroundedQueryPlan(
         plan_id="set-in",
@@ -615,7 +615,7 @@ def test_compiler_refuses_set_in_filter() -> None:
 
 # Helpers shared with the test module
 def _field(path: str, object_id: str):
-    from smartdata.contracts import GroundedFieldRef
+    from qaneris.contracts import GroundedFieldRef
 
     return GroundedFieldRef(
         datasource_id=DATASOURCE_ID,
@@ -625,7 +625,7 @@ def _field(path: str, object_id: str):
 
 
 def _agg(object_id: str, path: str, alias: str, function: AggregateFunction):
-    from smartdata.contracts import PlanAggregate
+    from qaneris.contracts import PlanAggregate
 
     return PlanAggregate(
         function=function,

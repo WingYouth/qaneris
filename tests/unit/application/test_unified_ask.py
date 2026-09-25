@@ -6,10 +6,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.common.errors import ModelInvocationError, QueryExecutionError
-from smartdata.contracts import (
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.common.errors import ModelInvocationError, QueryExecutionError
+from qaneris.contracts import (
     AskRequest,
     AskStatus,
     BusinessQuery,
@@ -21,9 +21,9 @@ from smartdata.contracts import (
     QueryLanguage,
     QueryResultType,
 )
-from smartdata.contracts.semantic import AggregateFunction, SemanticAssetType
-from smartdata.semantic import ClarificationOption, ClarificationRequest, RuleExtractor
-from smartdata.semantic.time import normalize_time_range
+from qaneris.contracts.semantic import AggregateFunction, SemanticAssetType
+from qaneris.semantic import ClarificationOption, ClarificationRequest, RuleExtractor
+from qaneris.semantic.time import normalize_time_range
 
 
 class IntentModel:
@@ -93,9 +93,9 @@ def execution() -> GroundedExecution:
     return GroundedExecution(result=result, evidence=evidence)
 
 
-def service(tmp_path, business_query: BusinessQuery | None = None) -> tuple[SmartDataService, IntentModel]:
+def service(tmp_path, business_query: BusinessQuery | None = None) -> tuple[QanerisService, IntentModel]:
     model = IntentModel(business_query or query())
-    instance = SmartDataService(Catalog(tmp_path / "catalog.db"), model=model)
+    instance = QanerisService(Catalog(tmp_path / "catalog.db"), model=model)
     instance._require_ready_scope = Mock()
     return instance, model
 
@@ -119,8 +119,8 @@ def executable_grounding() -> SimpleNamespace:
     )
 
 
-def wire_success(instance: SmartDataService):
-    from smartdata.contracts import Datasource, DatasourceKind
+def wire_success(instance: QanerisService):
+    from qaneris.contracts import Datasource, DatasourceKind
 
     instance.catalog.get_datasource = Mock(return_value=(Datasource(
         id="ds-sales", name="sales", workspace_id="workspace-a",
@@ -335,7 +335,7 @@ def test_unique_grounded_time_dimension_flows_to_context(tmp_path) -> None:
     instance.build_query_context = Mock(return_value=context)
     instance.plan_grounded_query = Mock(return_value=grounded_plan)
     instance.execute_grounded_plan = Mock(return_value=execution())
-    from smartdata.contracts import Datasource, DatasourceKind
+    from qaneris.contracts import Datasource, DatasourceKind
 
     instance.catalog.get_datasource = Mock(return_value=(Datasource(
         id="ds-sales", name="sales", workspace_id="workspace-a",

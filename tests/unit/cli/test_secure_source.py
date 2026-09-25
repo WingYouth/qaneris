@@ -19,13 +19,13 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from smartdata.application.service import SmartDataService
-from smartdata.cli import main as cli
-from smartdata.cli import source as source_cli
-from smartdata.cli.config import DatasourceConfigError
-from smartdata.common.errors import DatasourceNotFoundError
-from smartdata.contracts import DatasetInfo, Datasource, DatasourceDetail
-from smartdata.contracts.connection import SecureDatasourceTestResult
+from qaneris.application.service import QanerisService
+from qaneris.cli import main as cli
+from qaneris.cli import source as source_cli
+from qaneris.cli.config import DatasourceConfigError
+from qaneris.common.errors import DatasourceNotFoundError
+from qaneris.contracts import DatasetInfo, Datasource, DatasourceDetail
+from qaneris.contracts.connection import SecureDatasourceTestResult
 
 DATASOURCE_ID = "ds_ff606cfffe96"
 
@@ -78,12 +78,12 @@ def detail(**changes: Any) -> DatasourceDetail:
 
 def installed(monkeypatch: pytest.MonkeyPatch, service: Any) -> Mock:
     constructor = Mock(return_value=service)
-    monkeypatch.setattr(source_cli, "SmartDataService", constructor)
+    monkeypatch.setattr(source_cli, "QanerisService", constructor)
     return constructor
 
 
 def serving(monkeypatch: pytest.MonkeyPatch, **methods: Any) -> Any:
-    service = Mock(spec=SmartDataService, **methods)
+    service = Mock(spec=QanerisService, **methods)
     installed(monkeypatch, service)
     return service
 
@@ -151,9 +151,9 @@ def test_test_one_json_carries_only_three_public_facts(
 def test_test_one_failure_is_exit_one_with_a_stable_code(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from smartdata.common.errors import SmartDataError
+    from qaneris.common.errors import QanerisError
 
-    class ConnectionRefused(SmartDataError):
+    class ConnectionRefused(QanerisError):
         code = "connection_test_failed"
 
     serving(monkeypatch, test_secure_datasource=Mock(side_effect=ConnectionRefused("refused")))
@@ -187,7 +187,7 @@ def test_create_calls_the_service_once_and_does_not_scan(
     assert creating.call_count == 1
     assert creating.call_args.args[0].name == "sales"
     assert "Status: created" in stdout
-    assert f"Next: smartdata source scan-one {DATASOURCE_ID}" in stdout
+    assert f"Next: qaneris source scan-one {DATASOURCE_ID}" in stdout
     assert service.scan_datasource.call_count == 0
     assert service.test_secure_datasource.call_count == 0
 
@@ -467,7 +467,7 @@ def test_scan_one_still_scans_and_reports_the_new_version(
 def test_a_single_secure_config_is_accepted(
     tmp_path: Path,
 ) -> None:
-    from smartdata.cli.config import load_single_datasource_request
+    from qaneris.cli.config import load_single_datasource_request
 
     path = write_config(tmp_path, sqlite_config())
 
@@ -540,7 +540,7 @@ def test_every_secret_reference_provider_is_accepted(
         authentication={
             "method": "password",
             "username": "ro",
-            "password": {"provider": provider, "identifier": "SMARTDATA_DB_PASSWORD"},
+            "password": {"provider": provider, "identifier": "QANERIS_DB_PASSWORD"},
         }
     )
     path = write_config(tmp_path, payload)
@@ -575,7 +575,7 @@ def test_the_secure_commands_do_not_add_a_second_update_config_format() -> None:
 def test_the_secure_commands_reach_nothing_but_the_application_service() -> None:
     source = inspect.getsource(source_cli.run_secure_command)
     source += inspect.getsource(source_cli._run_secure_update)
-    for name in ("Catalog(", "SmartDataService(", "TLSMaterializer", "CertificateValidator"):
+    for name in ("Catalog(", "QanerisService(", "TLSMaterializer", "CertificateValidator"):
         assert name not in source, name
 
 

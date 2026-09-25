@@ -8,12 +8,12 @@ from datetime import UTC, datetime
 import pytest
 from _neo4j_fake import FakeNeo4jDriver, graph_reader, graph_store
 
-from smartdata.adapters import create_adapter
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.common.errors import QueryContextBuildError
-from smartdata.contracts import Datasource
-from smartdata.contracts.query import (
+from qaneris.adapters import create_adapter
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.common.errors import QueryContextBuildError
+from qaneris.contracts import Datasource
+from qaneris.contracts.query import (
     AggregateFunction,
     FilterOperator,
     QueryResultType,
@@ -21,10 +21,10 @@ from smartdata.contracts.query import (
     TimeRange,
     TimeSpec,
 )
-from smartdata.contracts.semantic import BusinessFilter, BusinessQuery, RankingSpec
-from smartdata.graph import GraphStructureRequest
-from smartdata.scan import ScanService
-from smartdata.semantic import (
+from qaneris.contracts.semantic import BusinessFilter, BusinessQuery, RankingSpec
+from qaneris.graph import GraphStructureRequest
+from qaneris.scan import ScanService
+from qaneris.semantic import (
     GraphSemanticRetriever,
     SemanticAsset,
     SemanticGrounder,
@@ -205,7 +205,7 @@ def retrieve(reader, catalog_path, query: BusinessQuery):
 
 
 def plan_of(driver, reader, catalog_path, query: BusinessQuery, **build):
-    service = SmartDataService(Catalog(catalog_path), graph_reader=reader)
+    service = QanerisService(Catalog(catalog_path), graph_reader=reader)
     retrieval = retrieve(reader, catalog_path, query)
     grounding = SemanticGrounder().ground(query, retrieval)
     context = service.build_query_context(grounding, **build)
@@ -322,7 +322,7 @@ def test_ambiguity_stops_before_the_context(tmp_path) -> None:
     assert grounding.is_executable is False
     assert grounding.clarifications
     with pytest.raises(QueryContextBuildError, match="未解决歧义"):
-        SmartDataService(Catalog(catalog_path), graph_reader=reader).build_query_context(grounding)
+        QanerisService(Catalog(catalog_path), graph_reader=reader).build_query_context(grounding)
 
 
 def test_planning_is_deterministic_over_the_published_graph(tmp_path) -> None:
@@ -341,7 +341,7 @@ def test_planning_is_deterministic_over_the_published_graph(tmp_path) -> None:
 def test_service_retrieve_ground_build_plan_chain(tmp_path) -> None:
     _driver, reader, catalog_path = scanned(tmp_path)
     registry_with(governed_assets(reader), catalog_path)
-    service = SmartDataService(Catalog(catalog_path), graph_reader=reader)
+    service = QanerisService(Catalog(catalog_path), graph_reader=reader)
     query = sales_query()
 
     retrieval = service.retrieve_semantics(query, requested_datasource_id=DATASOURCE_ID, limit=50)

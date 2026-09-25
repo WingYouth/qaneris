@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare this machine to run SmartData.
+"""Prepare this machine to run Qaneris.
 
 Run it from the repository root:
 
@@ -12,7 +12,7 @@ python3 setup.py --json     # machine-readable result for scripts and CI
 What it verifies, in order: the Python and Node runtimes, Docker and Compose, ``uv``, the
 ``.env`` keys the API refuses to start without, the managed credential store, the Python and
 frontend dependency trees, the model endpoint, the Neo4j container behind
-``SMARTDATA_NEO4J_URI``, a real bolt handshake, and whether the two dev servers are already up.
+``QANERIS_NEO4J_URI``, a real bolt handshake, and whether the two dev servers are already up.
 
 Repairs stay inside the repository. ``uv`` and Node are installed under ``.tools/`` when they
 are missing, dependencies go into ``.venv`` and ``web/frontend/node_modules``, and Neo4j is

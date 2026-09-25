@@ -19,11 +19,11 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-from smartdata.common.errors import (
+from qaneris.common.errors import (
     CertificateKeyMismatchError,
     CertificateValidationError,
 )
-from smartdata.connections.certificate_validator import CertificateValidator
+from qaneris.connections.certificate_validator import CertificateValidator
 
 CLIENT_PASSWORD = "UNIQUE_KEY_PASSWORD_MARKER"
 
@@ -43,7 +43,7 @@ def certificate(
     """Build a self-signed certificate for one purpose, valid by default."""
     issuer_key = key or private_key()
     now = dt.datetime.now(dt.UTC)
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "SmartData Test CA" if ca else "client")])
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Qaneris Test CA" if ca else "client")])
     builder = (
         x509.CertificateBuilder()
         .subject_name(name)
@@ -109,8 +109,8 @@ def test_a_valid_pem_ca_certificate_is_normalized(validator: CertificateValidato
 
     assert normalized.startswith("-----BEGIN CERTIFICATE-----")
     assert normalized.endswith("-----END CERTIFICATE-----\n")
-    assert metadata["subject"] == "CN=SmartData Test CA"
-    assert metadata["issuer"] == "CN=SmartData Test CA"
+    assert metadata["subject"] == "CN=Qaneris Test CA"
+    assert metadata["issuer"] == "CN=Qaneris Test CA"
     assert metadata["serial_number"] == str(ca.serial_number)
     assert metadata["sha256_fingerprint"] == ca.fingerprint(hashes.SHA256()).hex()
     assert metadata["not_valid_after"].startswith(str(ca.not_valid_after_utc.year))

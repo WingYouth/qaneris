@@ -32,7 +32,7 @@
 
 **「确实调用了大模型」的三条旁证**：
 
-1. `SMARTDATA_MODEL_BASE_URL` 原先缺 `/v1` 时，调用返回 **404**；补上 `/v1` 后返回 **200**。这
+1. `QANERIS_MODEL_BASE_URL` 原先缺 `/v1` 时，调用返回 **404**；补上 `/v1` 后返回 **200**。这
    证明请求真的打到了该端点的 `/chat/completions`，而不是走了本地兜底。
 2. 直接探测该端点时，响应 `message` 里带有 `reasoning_content`（推理内容）与
    `function_calls` / `tool_calls` 字段——这是推理型模型返回的真实响应结构。
@@ -41,8 +41,8 @@
 
 ## 3. 验收 scope
 
-由 `smartdata/scripts/acceptance/phase1_e2e_scope.py` 幂等构建，产物落在
-`SmartDataArtifacts/acceptance/phase1/`（`artifact_root()` 强制在项目目录之外）。
+由 `qaneris/scripts/acceptance/phase1_e2e_scope.py` 幂等构建，产物落在
+`QanerisArtifacts/acceptance/phase1/`（`artifact_root()` 强制在项目目录之外）。
 
 SQLite 源库（日期锚定运行当日，保证相对时间表达可解析）：
 
@@ -176,9 +176,9 @@ Top-5 结果：北京 10206.0 / 深圳 9931.0 / 广州 9660.0 / 上海 9540.0 / 
 - 每一轮的 `retrieval_candidates` 完整列表与 `grounding` 原始 JSON；
 - 18 次运行的逐次日志。
 
-**已据此加固**（见 `smartdata/scripts/acceptance/phase1_e2e.py`）：
+**已据此加固**（见 `qaneris/scripts/acceptance/phase1_e2e.py`）：
 
-1. 报告**默认写入** `SmartDataArtifacts/acceptance/phase1/phase1_e2e_report.json`，
+1. 报告**默认写入** `QanerisArtifacts/acceptance/phase1/phase1_e2e_report.json`，
    不再依赖调用方重定向 stdout。
 2. 单题失败**不再中断整轮**：失败就地记录为该题的 `aborted`，其余题继续；
    且**每题结束后立即重写报告**，进程被打断也留有已观测部分。
@@ -198,13 +198,13 @@ HTTP 429  {"error":{"message":"insufficient balance","request_id":"..."}}
 额度恢复后复现完整验收（一条命令，六题、单进程、报告自动落盘）：
 
 ```bash
-cd /Users/wingyouth_is01/code/SmartData
-.venv/bin/python3 -m smartdata.scripts.acceptance.phase1_e2e
-# 报告：SmartDataArtifacts/acceptance/phase1/phase1_e2e_report.json
+cd /Users/wingyouth_is01/code/Qaneris
+.venv/bin/python3 -m qaneris.scripts.acceptance.phase1_e2e
+# 报告：QanerisArtifacts/acceptance/phase1/phase1_e2e_report.json
 ```
 
-前置条件：Docker 运行 + `smartdata-neo4j` 容器已启动（`bolt://localhost:7687`），
-`.env` 里 `SMARTDATA_MODEL_*` 额度有效。
+前置条件：Docker 运行 + `qaneris-neo4j` 容器已启动（`bolt://localhost:7687`），
+`.env` 里 `QANERIS_MODEL_*` 额度有效。
 
 ## 10. 记录来源
 

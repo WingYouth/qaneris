@@ -35,11 +35,11 @@
 额度恢复、Neo4j 在 `bolt://localhost:7687` 可用之后，一条命令：
 
 ```bash
-cd /Users/wingyouth_is01/code/SmartData
-python3 -m smartdata.scripts.acceptance.phase1_e2e
+cd /Users/wingyouth_is01/code/Qaneris
+python3 -m qaneris.scripts.acceptance.phase1_e2e
 ```
 
-报告默认写到 `SmartDataArtifacts/acceptance/phase1/phase1_e2e_report.json`
+报告默认写到 `QanerisArtifacts/acceptance/phase1/phase1_e2e_report.json`
 （该目录在项目之外，是项目的产物约定）。单题失败不会中断整轮，且每题结束即重写报告。
 
 ## 时间线说明

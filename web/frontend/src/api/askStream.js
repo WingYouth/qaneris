@@ -7,7 +7,7 @@ export async function streamAskQuestion({ question, workspaceId = "default", dat
   try {
     response = await fetch(url, { method: "POST", signal, headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
       body: JSON.stringify({ question, workspace_id: workspaceId, datasource_id: datasourceId || null }) });
-  } catch (cause) { throw new ApiError("Unable to reach the SmartData backend.", { code: "backend_unavailable", cause }); }
+  } catch (cause) { throw new ApiError("Unable to reach the Qaneris backend.", { code: "backend_unavailable", cause }); }
   if (!response.ok) {
     const { data, isJson } = parseResponseBody(await response.text());
     throw errorFromResponse(response, data, isJson);

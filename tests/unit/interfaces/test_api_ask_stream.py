@@ -29,10 +29,10 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.common.errors import QueryExecutionError, SmartDataError
-from smartdata.contracts import (
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.common.errors import QanerisError, QueryExecutionError
+from qaneris.contracts import (
     AskEvent,
     AskEventType,
     AskRequest,
@@ -47,11 +47,11 @@ from smartdata.contracts import (
     QueryLanguage,
     QueryResultType,
 )
-from smartdata.contracts.semantic import AggregateFunction, SemanticAssetType
-from smartdata.interfaces.api import app as api_app
-from smartdata.interfaces.api import ask_stream as transport
-from smartdata.interfaces.api.app import create_app
-from smartdata.semantic import ClarificationOption, ClarificationRequest
+from qaneris.contracts.semantic import AggregateFunction, SemanticAssetType
+from qaneris.interfaces.api import app as api_app
+from qaneris.interfaces.api import ask_stream as transport
+from qaneris.interfaces.api.app import create_app
+from qaneris.semantic import ClarificationOption, ClarificationRequest
 
 ENDPOINT = "/api/ask/stream"
 SYNC_ENDPOINT = "/api/ask"
@@ -176,9 +176,9 @@ def executable_grounding() -> SimpleNamespace:
     )
 
 
-def wire_success(service: SmartDataService) -> None:
+def wire_success(service: QanerisService) -> None:
     """Wire the physical stages so the real orchestration produces a complete run."""
-    from smartdata.contracts import Datasource, DatasourceKind
+    from qaneris.contracts import Datasource, DatasourceKind
 
     service.catalog.get_datasource = Mock(return_value=(Datasource(
         id=DATASOURCE_ID, name="sales", workspace_id=WORKSPACE_ID,
@@ -190,7 +190,7 @@ def wire_success(service: SmartDataService) -> None:
     service.execute_grounded_plan = Mock(return_value=grounded_execution())
 
 
-def wire_grounding_clarification(service: SmartDataService) -> None:
+def wire_grounding_clarification(service: QanerisService) -> None:
     service.retrieve_semantics = Mock(return_value=retrieval_result())
     service.ground_semantics = Mock(
         return_value=SimpleNamespace(
@@ -216,13 +216,13 @@ def wire_grounding_clarification(service: SmartDataService) -> None:
 
 def streaming_service(
     tmp_path: Any, query: BusinessQuery | None = None
-) -> tuple[SmartDataService, list[AskEvent]]:
+) -> tuple[QanerisService, list[AskEvent]]:
     """The real Application Service, with the stream it emits recorded.
 
     Recording the events the service actually yields is what lets these tests compare the wire
     against the contract value by value instead of against a hand-built expectation.
     """
-    service = SmartDataService(
+    service = QanerisService(
         Catalog(tmp_path / "catalog.db"), model=IntentModel(query or business_query())
     )
     service._require_ready_scope = Mock()
@@ -246,7 +246,7 @@ def build_client(tmp_path: Any, service: Any, monkeypatch: pytest.MonkeyPatch) -
     sees the same object: the closure-based ones and the ones that resolve ``app.state.service``
     through ``service_of``.
     """
-    monkeypatch.setattr(api_app, "SmartDataService", lambda *args, **kwargs: service)
+    monkeypatch.setattr(api_app, "QanerisService", lambda *args, **kwargs: service)
     return TestClient(create_app(database_path=str(tmp_path / "catalog.db")))
 
 
@@ -262,7 +262,7 @@ def compose(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
 
 def running_client(
     tmp_path: Any, compose: Any
-) -> tuple[TestClient, SmartDataService, list[AskEvent]]:
+) -> tuple[TestClient, QanerisService, list[AskEvent]]:
     """A client whose service produces a complete, real run."""
     service, recorded = streaming_service(tmp_path)
     wire_success(service)
@@ -546,7 +546,7 @@ def test_a_product_error_streams_as_error_then_done_on_an_http_200(tmp_path: Any
 def test_the_verdict_is_not_rewritten_into_an_http_error(tmp_path: Any, compose: Any) -> None:
     """A stream that already started cannot become a 4xx/5xx; the verdict travels as an event."""
     service, _ = streaming_service(tmp_path)
-    service.retrieve_semantics = Mock(side_effect=SmartDataError("graph is not configured"))
+    service.retrieve_semantics = Mock(side_effect=QanerisError("graph is not configured"))
     client = compose(service)
 
     response = client.post(ENDPOINT, json=ASK_BODY)
@@ -554,7 +554,7 @@ def test_the_verdict_is_not_rewritten_into_an_http_error(tmp_path: Any, compose:
     assert response.status_code == 200
     assert response.status_code not in {400, 404, 422, 500}
     frames = parse_sse(sse_body(response))
-    assert json.loads(frames[-2][1])["payload"]["error"]["code"] == "smartdata_error"
+    assert json.loads(frames[-2][1])["payload"]["error"]["code"] == "qaneris_error"
 
 
 # --------------------------------------------------------------------------------------------
@@ -576,7 +576,7 @@ def test_private_reasoning_credentials_and_bound_parameters_never_reach_the_wire
     tmp_path: Any, compose: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     secret = "transport-super-secret"
-    monkeypatch.setenv("SMARTDATA_TEST_TOKEN", secret)
+    monkeypatch.setenv("QANERIS_TEST_TOKEN", secret)
     events = [
         AskEvent(
             event_type="accepted",
@@ -781,13 +781,13 @@ def test_the_synchronous_endpoint_still_reports_product_errors_as_http_errors(
     tmp_path: Any, compose: Any
 ) -> None:
     service, _ = streaming_service(tmp_path)
-    service.retrieve_semantics = Mock(side_effect=SmartDataError("graph is not configured"))
+    service.retrieve_semantics = Mock(side_effect=QanerisError("graph is not configured"))
     client = compose(service)
 
     response = client.post(SYNC_ENDPOINT, json={"question": QUESTION})
 
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "smartdata_error"
+    assert response.json()["error"]["code"] == "qaneris_error"
 
 
 def test_the_excel_upload_endpoint_is_unchanged(tmp_path: Any) -> None:
@@ -830,7 +830,7 @@ def test_the_transport_never_reaches_past_the_event_contract() -> None:
         "create_adapter",
         "GraphStore",
         "neo4j",
-        "SmartDataService(",
+        "QanerisService(",
     ):
         assert name not in module_source, name
     assert "ask_stream" in module_source

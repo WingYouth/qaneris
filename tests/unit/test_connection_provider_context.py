@@ -16,11 +16,11 @@ from pathlib import Path
 
 import pytest
 
-from smartdata.catalog import Catalog
-from smartdata.common.errors import TLSFeatureUnsupportedError
-from smartdata.connections.provider import DatasourceConnectionProvider
-from smartdata.connections.secrets import EnvironmentSecretProvider, SecretResolver
-from smartdata.contracts import (
+from qaneris.catalog import Catalog
+from qaneris.common.errors import TLSFeatureUnsupportedError
+from qaneris.connections.provider import DatasourceConnectionProvider
+from qaneris.connections.secrets import EnvironmentSecretProvider, SecretResolver
+from qaneris.contracts import (
     AuthenticationConfig,
     ConnectionEndpoint,
     ConnectionProfile,
@@ -29,7 +29,7 @@ from smartdata.contracts import (
     SecureDatasourceTest,
     TLSConfig,
 )
-from smartdata.contracts.connection import SecretProviderKind
+from qaneris.contracts.connection import SecretProviderKind
 from tests.unit._tls_helpers import ca_certificate, pem
 
 
@@ -239,10 +239,10 @@ def test_the_initializer_opens_the_connection(tmp_path: Path, monkeypatch) -> No
 
 def test_the_candidate_test_uses_open_profile(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("TEST_PASSWORD", "UNIQUE_PASSWORD")
-    from smartdata.application.service import SmartDataService
+    from qaneris.application.service import QanerisService
 
     catalog = Catalog(tmp_path / "catalog.db")
-    service = SmartDataService(catalog)
+    service = QanerisService(catalog)
     provider = RecordingProvider(service.connection_provider)
     service.connection_provider = provider
     service.initializer.connection_provider = provider
@@ -262,14 +262,14 @@ def test_the_candidate_test_uses_open_profile(tmp_path: Path, monkeypatch) -> No
 
 def test_the_grounded_executor_opens_the_connection(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("TEST_PASSWORD", "UNIQUE_PASSWORD")
-    from smartdata.querying.execution import GroundedQueryExecutor
+    from qaneris.querying.execution import GroundedQueryExecutor
 
     catalog = Catalog(tmp_path / "catalog.db")
     provider = RecordingProvider(DatasourceConnectionProvider(catalog))
     executor = GroundedQueryExecutor(provider)
     datasource = _fake_datasource("ds_1")
 
-    from smartdata.contracts.query import NativeQuery
+    from qaneris.contracts.query import NativeQuery
 
     _expect_unsupported_driver(
         lambda: executor.execute(
@@ -291,7 +291,7 @@ def test_the_grounded_executor_opens_the_connection(tmp_path: Path, monkeypatch)
 
 
 def _fake_datasource(datasource_id: str):
-    from smartdata.contracts.datasource import Datasource, DatasourceKind
+    from qaneris.contracts.datasource import Datasource, DatasourceKind
 
     return Datasource(
         id=datasource_id,
@@ -303,8 +303,8 @@ def _fake_datasource(datasource_id: str):
 
 
 def _initializer(catalog: Catalog, provider):
-    from smartdata.graph import NullGraphStore
-    from smartdata.initialization import DatabaseInitializer
+    from qaneris.graph import NullGraphStore
+    from qaneris.initialization import DatabaseInitializer
 
     return DatabaseInitializer(
         catalog,
@@ -315,7 +315,7 @@ def _initializer(catalog: Catalog, provider):
 
 
 def _run_initializer(initializer, datasource_id: str):
-    from smartdata.contracts.profile import ScanStatus
+    from qaneris.contracts.profile import ScanStatus
 
     job = initializer.initialize(datasource_id)
     assert job.status in {

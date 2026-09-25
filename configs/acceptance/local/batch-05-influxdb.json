@@ -14,7 +14,7 @@
           "method": "token",
           "token": {
             "provider": "environment",
-            "identifier": "SMARTDATA_INFLUXDB_TOKEN"
+            "identifier": "QANERIS_INFLUXDB_TOKEN"
           }
         },
         "options": {

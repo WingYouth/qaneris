@@ -3,12 +3,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from smartdata.connections.secrets import (
+from qaneris.connections.secrets import (
     EnvironmentSecretProvider,
     FileSecretProvider,
     SecretResolver,
 )
-from smartdata.contracts import (
+from qaneris.contracts import (
     AuthenticationConfig,
     AuthenticationMethod,
     ConnectionEndpoint,

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from smartdata.application.service import SmartDataService
-from smartdata.contracts.credentials import ManagedSecretInfo, ManagedSecretKind
+from qaneris.application.service import QanerisService
+from qaneris.contracts.credentials import ManagedSecretInfo, ManagedSecretKind
 
 
 class RecordingCredentials:
@@ -61,10 +61,10 @@ class RecordingCredentials:
         self.calls.append(("delete_secret", (secret_id,), {}))
 
 
-def service_with(credentials: RecordingCredentials, tmp_path) -> SmartDataService:
-    from smartdata.catalog import Catalog
+def service_with(credentials: RecordingCredentials, tmp_path) -> QanerisService:
+    from qaneris.catalog import Catalog
 
-    return SmartDataService(Catalog(tmp_path / "catalog.db"), credential_service=credentials)
+    return QanerisService(Catalog(tmp_path / "catalog.db"), credential_service=credentials)
 
 
 def test_create_managed_secret_delegates_exactly_once(tmp_path) -> None:

@@ -40,7 +40,7 @@ fi
 if curl --silent --fail --max-time 2 http://127.0.0.1:8000/health >/dev/null; then
   echo "后端已在 127.0.0.1:8000 运行。"
 else
-  "$repo_root/.venv/bin/python" -m uvicorn smartdata.interfaces.api.app:app --host 127.0.0.1 --port 8000 &
+  "$repo_root/.venv/bin/python" -m uvicorn qaneris.interfaces.api.app:app --host 127.0.0.1 --port 8000 &
   backend_pid=$!
   for ((attempt = 0; attempt < 50; attempt++)); do
     if curl --silent --fail --max-time 2 http://127.0.0.1:8000/health >/dev/null; then break; fi
@@ -69,7 +69,7 @@ else
   fi
 fi
 
-echo "SmartData 已启动：$url"
+echo "Qaneris 已启动：$url"
 echo "按 Ctrl+C 停止由本脚本启动的服务。"
 if [[ "${1:-}" != "--no-open" ]] && command -v open >/dev/null 2>&1; then
   open "$url" || true

@@ -6,10 +6,10 @@ from pathlib import Path
 import uvicorn
 
 from examples.create_demo_database import create_demo_database
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.contracts import Datasource, DatasourceCreate
-from smartdata.interfaces.api.app import create_app
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.contracts import Datasource, DatasourceCreate
+from qaneris.interfaces.api.app import create_app
 
 DEFAULT_DATABASE = Path(__file__).with_name("sales_2026_07.db")
 DEFAULT_CATALOG = Path(__file__).with_name("demo_catalog.db")
@@ -25,7 +25,7 @@ def prepare_demo(
     if not database.exists():
         create_demo_database(database)
 
-    service = SmartDataService(Catalog(catalog_file))
+    service = QanerisService(Catalog(catalog_file))
     datasource = next(
         (item for item in service.list_datasources() if item.name == DEMO_DATASOURCE_NAME),
         None,
@@ -43,7 +43,7 @@ def prepare_demo(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Prepare and run the SmartData demo")
+    parser = argparse.ArgumentParser(description="Prepare and run the Qaneris demo")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8000, type=int)
     parser.add_argument("--database", default=str(DEFAULT_DATABASE))

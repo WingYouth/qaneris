@@ -15,7 +15,7 @@
           "username": "readonly",
           "password": {
             "provider": "environment",
-            "identifier": "SMARTDATA_TIMESCALEDB_PASSWORD"
+            "identifier": "QANERIS_TIMESCALEDB_PASSWORD"
           }
         }
       }

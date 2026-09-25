@@ -1,5 +1,5 @@
-from smartdata.adapters.registry import create_adapter, get_adapter_class, list_registered_adapters
-from smartdata.contracts import DatasourceKind
+from qaneris.adapters.registry import create_adapter, get_adapter_class, list_registered_adapters
+from qaneris.contracts import DatasourceKind
 
 EXPECTED_ADAPTERS = {
     (DatasourceKind.RELATIONAL, "sqlite"),

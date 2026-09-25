@@ -14,19 +14,19 @@ RS-VIZ-01 的确定性可视化链路已在真实 Neo4j、真实 SQLite 执行�
 
 ```bash
 open -a Docker
-docker compose -p smartdata-viz02 up -d neo4j --pull never
+docker compose -p qaneris-viz02 up -d neo4j --pull never
 ```
 
 在仓库根目录运行（`.env` 只用于本地 Neo4j 凭据，模型变量在本次本地验收中移除）：
 
 ```bash
 set -a; source .env; set +a
-unset SMARTDATA_MODEL_BASE_URL SMARTDATA_MODEL_API_KEY SMARTDATA_MODEL_NAME
-SMARTDATA_ARTIFACT_ROOT=/private/tmp/smartdata-viz02-local \
-  .venv/bin/python -m smartdata.scripts.acceptance.web_visualization
+unset QANERIS_MODEL_BASE_URL QANERIS_MODEL_API_KEY QANERIS_MODEL_NAME
+QANERIS_ARTIFACT_ROOT=/private/tmp/qaneris-viz02-local \
+  .venv/bin/python -m qaneris.scripts.acceptance.web_visualization
 ```
 
-脚本使用固定的 `orders.xlsx` 合成数据，调用真实 HTTP/SSE 前端模块，并用 Chrome 打开生产构建页面。最终检查、每种图表的真实返回数据及饼图/折线图截图写入 `SMARTDATA_ARTIFACT_ROOT/acceptance/web-viz-<UTC时间>/`。2026-09-24 本地记录为 `/private/tmp/smartdata-viz02-local/acceptance/web-viz-20260924T062546Z`，`visualization-checks.json` 中 57 项均为 `true`。
+脚本使用固定的 `orders.xlsx` 合成数据，调用真实 HTTP/SSE 前端模块，并用 Chrome 打开生产构建页面。最终检查、每种图表的真实返回数据及饼图/折线图截图写入 `QANERIS_ARTIFACT_ROOT/acceptance/web-viz-<UTC时间>/`。2026-09-24 本地记录为 `/private/tmp/qaneris-viz02-local/acceptance/web-viz-20260924T062546Z`，`visualization-checks.json` 中 57 项均为 `true`。
 
 ## Python 失败归因与回归
 
@@ -38,11 +38,11 @@ Python:   1463 passed, 3 skipped
 Ruff:     All checks passed
 ```
 
-完整 Python 回归使用 `SMARTDATA_ARTIFACT_ROOT=/private/tmp/smartdata-viz02-tests .venv/bin/python -m pytest -q`，避免默认仓库外 artifact 目录的 sandbox 权限问题。
+完整 Python 回归使用 `QANERIS_ARTIFACT_ROOT=/private/tmp/qaneris-viz02-tests .venv/bin/python -m pytest -q`，避免默认仓库外 artifact 目录的 sandbox 权限问题。
 
 ## 外部环境边界
 
 - 外部模型真实验收：配置的 OpenRouter 服务可达，但本次 `web_workspace` 返回 HTTP 429 `free-models-per-day`，导致模型版 Ask 没有完成。该脚本如实报告 `FAIL`，不得计为通过；恢复账户额度或提供可用模型后需重跑。
-- Docker：Docker Desktop daemon 已启动，版本 29.4.3；`docker build -t smartdata:rs-viz-02 .` 在拉取 `node:22-slim`、`python:3.12-slim` 的 Docker Hub 授权 token 时连接超时。两种基础镜像均未在本机缓存。本机生产前端构建通过，Python API 已在验收中启动并返回健康状态；容器镜像构建仍需 Docker Hub 可达后重跑。此次没有修改 Dockerfile。
+- Docker：Docker Desktop daemon 已启动，版本 29.4.3；`docker build -t qaneris:rs-viz-02 .` 在拉取 `node:22-slim`、`python:3.12-slim` 的 Docker Hub 授权 token 时连接超时。两种基础镜像均未在本机缓存。本机生产前端构建通过，Python API 已在验收中启动并返回健康状态；容器镜像构建仍需 Docker Hub 可达后重跑。此次没有修改 Dockerfile。
 
 上述两项是外部服务限制，不改变 57 项本地图表验收结论，也不能被记录成外部模型或 Docker 镜像已通过。

@@ -15,7 +15,7 @@
           "username": "retail_reader",
           "password": {
             "provider": "environment",
-            "identifier": "SMARTDATA_ELASTICSEARCH_PASSWORD"
+            "identifier": "QANERIS_ELASTICSEARCH_PASSWORD"
           }
         }
       }

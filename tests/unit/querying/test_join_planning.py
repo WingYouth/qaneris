@@ -6,11 +6,11 @@ from typing import Any
 import pytest
 
 from examples.create_demo_database import create_demo_database
-from smartdata.adapters.relational.sqlite import SQLiteAdapter
-from smartdata.common.errors import QueryPlanningError
-from smartdata.contracts import Datasource
-from smartdata.querying.intent.join_intent import parse_join_intent
-from smartdata.querying.planning.simple_planner import plan_query
+from qaneris.adapters.relational.sqlite import SQLiteAdapter
+from qaneris.common.errors import QueryPlanningError
+from qaneris.contracts import Datasource
+from qaneris.querying.intent.join_intent import parse_join_intent
+from qaneris.querying.planning.simple_planner import plan_query
 
 
 @pytest.fixture

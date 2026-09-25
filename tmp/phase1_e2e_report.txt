@@ -1,36 +1,36 @@
 Traceback (most recent call last):
   File "<frozen runpy>", line 203, in _run_module_as_main
   File "<frozen runpy>", line 88, in _run_code
-  File "/Users/wingyouth_is01/code/SmartData/smartdata/scripts/acceptance/phase1_e2e.py", line 425, in <module>
+  File "/Users/wingyouth_is01/code/Qaneris/qaneris/scripts/acceptance/phase1_e2e.py", line 425, in <module>
     raise SystemExit(main())
                      ~~~~^^
-  File "/Users/wingyouth_is01/code/SmartData/smartdata/scripts/acceptance/phase1_e2e.py", line 363, in main
+  File "/Users/wingyouth_is01/code/Qaneris/qaneris/scripts/acceptance/phase1_e2e.py", line 363, in main
     report = run_scenario(
         service, code, title, question, datasource.id, trace=not args.no_trace
     )
-  File "/Users/wingyouth_is01/code/SmartData/smartdata/scripts/acceptance/phase1_e2e.py", line 252, in run_scenario
+  File "/Users/wingyouth_is01/code/Qaneris/qaneris/scripts/acceptance/phase1_e2e.py", line 252, in run_scenario
     response = service.ask(
         AskRequest(question=question, workspace_id=WORKSPACE_ID, datasource_id=scope)
     )
-  File "/Users/wingyouth_is01/code/SmartData/smartdata/application/service.py", line 338, in ask
+  File "/Users/wingyouth_is01/code/Qaneris/qaneris/application/service.py", line 338, in ask
     intent = self.understand_intent(request.question, request.datasource_id)
-  File "/Users/wingyouth_is01/code/SmartData/smartdata/application/service.py", line 190, in understand_intent
+  File "/Users/wingyouth_is01/code/Qaneris/qaneris/application/service.py", line 190, in understand_intent
     return self.intent_understanding.understand(question, requested_datasource_id)
            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/wingyouth_is01/code/SmartData/smartdata/semantic/intent.py", line 188, in understand
+  File "/Users/wingyouth_is01/code/Qaneris/qaneris/semantic/intent.py", line 188, in understand
     model_query = self.parser.parse(question, rules)
-  File "/Users/wingyouth_is01/code/SmartData/smartdata/semantic/intent.py", line 155, in parse
+  File "/Users/wingyouth_is01/code/Qaneris/qaneris/semantic/intent.py", line 155, in parse
     query = self.model.parse_business_query(question, rules.model_dump(mode="json"))
-  File "/Users/wingyouth_is01/code/SmartData/smartdata/llm/gateway.py", line 61, in parse_business_query
+  File "/Users/wingyouth_is01/code/Qaneris/qaneris/llm/gateway.py", line 61, in parse_business_query
     content = self._chat(
         "你是业务查询意图解析器。只表达业务目标、实体、指标、维度、业务过滤、自然时间、"
     ...<11 lines>...
         json_response=True,
     )
-  File "/Users/wingyouth_is01/code/SmartData/smartdata/llm/gateway.py", line 48, in _chat
+  File "/Users/wingyouth_is01/code/Qaneris/qaneris/llm/gateway.py", line 48, in _chat
     response.raise_for_status()
     ~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/Users/wingyouth_is01/code/SmartData/.venv/lib/python3.13/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/wingyouth_is01/code/Qaneris/.venv/lib/python3.13/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api-inference.modelscope.cn/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429

@@ -3,7 +3,7 @@
 from collections import Counter
 from dataclasses import dataclass
 
-from smartdata.contracts import (
+from qaneris.contracts import (
     AskClarification,
     AskEvent,
     AskResponse,
@@ -11,16 +11,16 @@ from smartdata.contracts import (
     ExecutionEvidence,
     NormalizedResult,
 )
-from smartdata.contracts.semantic import BusinessQuery
-from smartdata.conversation.context import ConversationContextResolver
-from smartdata.conversation.repository import SQLiteConversationRepository
-from smartdata.conversation.service import ConversationService
-from smartdata.federation.models import FederatedPlanDraft
-from smartdata.federation.router import RoutingDecision
-from smartdata.runtime.models import RunStatus
-from smartdata.runtime.orchestrator import RunOrchestrator
-from smartdata.runtime.repository import SQLiteRunRepository
-from smartdata.runtime.scheduler import InlineRunScheduler
+from qaneris.contracts.semantic import BusinessQuery
+from qaneris.conversation.context import ConversationContextResolver
+from qaneris.conversation.repository import SQLiteConversationRepository
+from qaneris.conversation.service import ConversationService
+from qaneris.federation.models import FederatedPlanDraft
+from qaneris.federation.router import RoutingDecision
+from qaneris.runtime.models import RunStatus
+from qaneris.runtime.orchestrator import RunOrchestrator
+from qaneris.runtime.repository import SQLiteRunRepository
+from qaneris.runtime.scheduler import InlineRunScheduler
 
 
 @dataclass

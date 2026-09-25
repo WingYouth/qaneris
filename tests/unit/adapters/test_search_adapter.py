@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from typing import Any
 
-from smartdata.adapters.search.engine import SearchAdapter
+from qaneris.adapters.search.engine import SearchAdapter
 
 
 def test_elasticsearch_defaults_to_all_indexes_for_connection_and_scan() -> None:

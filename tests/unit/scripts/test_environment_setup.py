@@ -120,7 +120,7 @@ def test_effective_environment_lets_the_process_win(monkeypatch, tmp_path) -> No
     env_file = tmp_path / ".env"
     env_file.write_text("SETUP_PROBE=from_file\n", encoding="utf-8")
     monkeypatch.setenv("SETUP_PROBE", "from_process")
-    monkeypatch.setenv("SMARTDATA_ENV_FILE", str(env_file))
+    monkeypatch.setenv("QANERIS_ENV_FILE", str(env_file))
 
     assert effective_environment()["SETUP_PROBE"] == "from_process"
 
@@ -131,20 +131,20 @@ def test_effective_environment_uses_the_file_when_the_process_is_silent(
     env_file = tmp_path / ".env"
     env_file.write_text("SETUP_PROBE_ONLY_FILE=from_file\n", encoding="utf-8")
     monkeypatch.delenv("SETUP_PROBE_ONLY_FILE", raising=False)
-    monkeypatch.setenv("SMARTDATA_ENV_FILE", str(env_file))
+    monkeypatch.setenv("QANERIS_ENV_FILE", str(env_file))
 
     assert effective_environment()["SETUP_PROBE_ONLY_FILE"] == "from_file"
 
 
 def test_dotenv_path_prefers_the_explicit_override(monkeypatch, tmp_path) -> None:
     target = tmp_path / "custom.env"
-    monkeypatch.setenv("SMARTDATA_ENV_FILE", str(target))
+    monkeypatch.setenv("QANERIS_ENV_FILE", str(target))
 
     assert _dotenv_path() == target.resolve()
 
 
 def test_dotenv_path_defaults_to_the_repository_root(monkeypatch) -> None:
-    monkeypatch.delenv("SMARTDATA_ENV_FILE", raising=False)
+    monkeypatch.delenv("QANERIS_ENV_FILE", raising=False)
 
     assert _dotenv_path().name == ".env"
 
@@ -209,11 +209,11 @@ def test_tool_environment_without_vendored_tools_leaves_path_alone(monkeypatch) 
 
 
 def test_tool_environment_injects_the_neo4j_password_for_compose(monkeypatch) -> None:
-    """docker-compose.yml interpolates SMARTDATA_NEO4J_PASSWORD; the child must receive it."""
-    monkeypatch.delenv("SMARTDATA_NEO4J_PASSWORD", raising=False)
-    ctx = Context(environment={"SMARTDATA_NEO4J_PASSWORD": "from-file"})
+    """docker-compose.yml interpolates QANERIS_NEO4J_PASSWORD; the child must receive it."""
+    monkeypatch.delenv("QANERIS_NEO4J_PASSWORD", raising=False)
+    ctx = Context(environment={"QANERIS_NEO4J_PASSWORD": "from-file"})
 
-    assert ctx.tool_environment(docker_password="explicit")["SMARTDATA_NEO4J_PASSWORD"] == "explicit"
+    assert ctx.tool_environment(docker_password="explicit")["QANERIS_NEO4J_PASSWORD"] == "explicit"
 
 
 def test_uv_sync_passes_every_requested_extra(monkeypatch, tmp_path) -> None:
@@ -527,7 +527,7 @@ def test_generated_secrets_are_not_repeated() -> None:
 def test_environment_file_is_created_when_absent(monkeypatch, tmp_path) -> None:
     """A fresh checkout has no .env; one run must produce a usable one."""
     target = tmp_path / ".env"
-    monkeypatch.setenv("SMARTDATA_ENV_FILE", str(target))
+    monkeypatch.setenv("QANERIS_ENV_FILE", str(target))
     ctx = Context(environment={}, dry_run=False)
 
     result = _create_environment_file(ctx)
@@ -536,24 +536,24 @@ def test_environment_file_is_created_when_absent(monkeypatch, tmp_path) -> None:
     assert target.is_file()
     assert oct(target.stat().st_mode & 0o777) == "0o600"
     written = _read_dotenv(target)
-    assert written["SMARTDATA_NEO4J_PASSWORD"]
-    assert len(base64.urlsafe_b64decode(written["SMARTDATA_MASTER_KEY"])) == 32
-    assert written["SMARTDATA_NEO4J_URI"] == "bolt://localhost:7687"
+    assert written["QANERIS_NEO4J_PASSWORD"]
+    assert len(base64.urlsafe_b64decode(written["QANERIS_MASTER_KEY"])) == 32
+    assert written["QANERIS_NEO4J_URI"] == "bolt://localhost:7687"
 
 
 def test_created_environment_file_leaves_the_model_section_unset(monkeypatch, tmp_path) -> None:
     """setup.py must not invent an external credential."""
     target = tmp_path / ".env"
-    monkeypatch.setenv("SMARTDATA_ENV_FILE", str(target))
+    monkeypatch.setenv("QANERIS_ENV_FILE", str(target))
     _create_environment_file(Context(environment={}, dry_run=False))
 
     written = _read_dotenv(target)
-    assert not written.get("SMARTDATA_MODEL_API_KEY")
+    assert not written.get("QANERIS_MODEL_API_KEY")
 
 
 def test_environment_file_creation_is_skipped_in_dry_run(monkeypatch, tmp_path) -> None:
     target = tmp_path / ".env"
-    monkeypatch.setenv("SMARTDATA_ENV_FILE", str(target))
+    monkeypatch.setenv("QANERIS_ENV_FILE", str(target))
 
     result = _create_environment_file(Context(environment={}, dry_run=True))
 
@@ -564,18 +564,18 @@ def test_environment_file_creation_is_skipped_in_dry_run(monkeypatch, tmp_path) 
 def test_missing_neo4j_password_is_filled_into_an_existing_file(monkeypatch, tmp_path) -> None:
     target = tmp_path / ".env"
     target.write_text(
-        "SMARTDATA_GRAPH_STORE=neo4j\n"
-        "SMARTDATA_NEO4J_URI=bolt://localhost:7687\n"
-        "SMARTDATA_NEO4J_USERNAME=neo4j\n",
+        "QANERIS_GRAPH_STORE=neo4j\n"
+        "QANERIS_NEO4J_URI=bolt://localhost:7687\n"
+        "QANERIS_NEO4J_USERNAME=neo4j\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("SMARTDATA_ENV_FILE", str(target))
+    monkeypatch.setenv("QANERIS_ENV_FILE", str(target))
     ctx = Context(environment={}, dry_run=False)
 
     result = check_environment_file(ctx)
 
     assert result.status == FIXED
-    assert _read_dotenv(target)["SMARTDATA_NEO4J_PASSWORD"]
+    assert _read_dotenv(target)["QANERIS_NEO4J_PASSWORD"]
 
 
 def test_appending_never_overwrites_existing_keys(tmp_path) -> None:
@@ -618,8 +618,8 @@ def test_store_with_a_document_pins_the_key(tmp_path) -> None:
 def test_secret_store_refuses_a_directory_inside_the_repository(monkeypatch) -> None:
     ctx = Context(
         environment={
-            "SMARTDATA_SECRET_STORE_DIR": str(PROJECT_ROOT / "secrets"),
-            "SMARTDATA_MASTER_KEY": generate_master_key(),
+            "QANERIS_SECRET_STORE_DIR": str(PROJECT_ROOT / "secrets"),
+            "QANERIS_MASTER_KEY": generate_master_key(),
         },
         dry_run=False,
     )
@@ -633,8 +633,8 @@ def test_secret_store_refuses_a_directory_inside_the_repository(monkeypatch) -> 
 def test_secret_store_reports_an_undecodable_key() -> None:
     ctx = Context(
         environment={
-            "SMARTDATA_SECRET_STORE_DIR": str(Path.home() / ".smartdata" / "probe"),
-            "SMARTDATA_MASTER_KEY": "!!! not base64 !!!",
+            "QANERIS_SECRET_STORE_DIR": str(Path.home() / ".qaneris" / "probe"),
+            "QANERIS_MASTER_KEY": "!!! not base64 !!!",
         },
         dry_run=False,
     )
@@ -648,8 +648,8 @@ def test_secret_store_reports_an_undecodable_key() -> None:
 def test_secret_store_reports_a_key_of_the_wrong_length() -> None:
     ctx = Context(
         environment={
-            "SMARTDATA_SECRET_STORE_DIR": str(Path.home() / ".smartdata" / "probe"),
-            "SMARTDATA_MASTER_KEY": base64.urlsafe_b64encode(b"too-short").decode(),
+            "QANERIS_SECRET_STORE_DIR": str(Path.home() / ".qaneris" / "probe"),
+            "QANERIS_MASTER_KEY": base64.urlsafe_b64encode(b"too-short").decode(),
         },
         dry_run=False,
     )
@@ -661,7 +661,7 @@ def test_secret_store_reports_a_key_of_the_wrong_length() -> None:
 
 
 def test_dry_run_does_not_generate_a_store(monkeypatch, tmp_path) -> None:
-    monkeypatch.setenv("SMARTDATA_SECRET_STORE_DIR", str(tmp_path / "store"))
+    monkeypatch.setenv("QANERIS_SECRET_STORE_DIR", str(tmp_path / "store"))
     ctx = Context(environment={}, dry_run=True)
 
     result = check_secret_store(ctx)

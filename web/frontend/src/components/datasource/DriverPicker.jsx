@@ -48,6 +48,6 @@ export function DriverPicker({ adapters, selected, onSelect, onNext, onCancel })
         <div className="driver-picker__selection">{selected ? <>当前选择 <strong>{driverName(selected)}</strong> · {adapters.find((item) => item.driver === selected)?.kind}</> : "请选择一种数据库"}<span>驱动列表由后端提供</span></div>
       </div>
     </div>
-    <footer className="connection-flow__footer"><p>连接测试将由 SmartData 后端执行。</p><div><button type="button" className="connection-flow__button" onClick={onCancel}>取消</button><button type="button" className="primary-button" disabled={!selected} onClick={onNext}>下一步：配置连接 <span aria-hidden="true">→</span></button></div></footer>
+    <footer className="connection-flow__footer"><p>连接测试将由 Qaneris 后端执行。</p><div><button type="button" className="connection-flow__button" onClick={onCancel}>取消</button><button type="button" className="primary-button" disabled={!selected} onClick={onNext}>下一步：配置连接 <span aria-hidden="true">→</span></button></div></footer>
   </div>;
 }

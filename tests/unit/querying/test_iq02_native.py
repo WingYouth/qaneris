@@ -5,12 +5,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from smartdata.adapters.document.mongodb import MongoDBAdapter
-from smartdata.adapters.key_value.redis import RedisAdapter
-from smartdata.adapters.relational.sqlalchemy import SQLAlchemyAdapter
-from smartdata.application.service import SmartDataService
-from smartdata.common.errors import QueryPlanningError, QuerySafetyError
-from smartdata.contracts import (
+from qaneris.adapters.document.mongodb import MongoDBAdapter
+from qaneris.adapters.key_value.redis import RedisAdapter
+from qaneris.adapters.relational.sqlalchemy import SQLAlchemyAdapter
+from qaneris.application.service import QanerisService
+from qaneris.common.errors import QueryPlanningError, QuerySafetyError
+from qaneris.contracts import (
     AggregateFunction,
     Datasource,
     DatasourceKind,
@@ -30,11 +30,11 @@ from smartdata.contracts import (
     SortDirection,
     TimeRange,
 )
-from smartdata.contracts.semantic import BusinessObjective, BusinessQuery, SemanticAssetType
-from smartdata.querying.generation.native import GroundedNativeCompiler
-from smartdata.querying.planning.grounded_planner import GroundedQueryPlanner
-from smartdata.querying.validation.native import GroundedNativeQueryValidator, _placeholder_count
-from smartdata.querying.validation.plans import GroundedPlanValidator
+from qaneris.contracts.semantic import BusinessObjective, BusinessQuery, SemanticAssetType
+from qaneris.querying.generation.native import GroundedNativeCompiler
+from qaneris.querying.planning.grounded_planner import GroundedQueryPlanner
+from qaneris.querying.validation.native import GroundedNativeQueryValidator, _placeholder_count
+from qaneris.querying.validation.plans import GroundedPlanValidator
 
 
 def source(driver: str) -> Datasource:
@@ -133,7 +133,7 @@ def test_public_query_event_omits_native_values(driver, field):
     p = plan(driver, selected_fields=[ref(field)], filters=[PlanFilter(
         field=ref(filter_field), operator=FilterOperator.EQUALS, value=secret)])
     native = GroundedNativeCompiler().compile(p, source(driver))
-    payload = SmartDataService._native_query_payload(native)
+    payload = QanerisService._native_query_payload(native)
     assert set(payload) == {"stage", "datasource_id", "scan_version", "plan_id",
                             "query_language", "display_command"}
     assert secret not in str(payload)

@@ -21,11 +21,11 @@ from datetime import UTC, datetime
 
 import pytest
 
-from smartdata.contracts import DatasetInfo, Datasource, FieldInfo
-from smartdata.contracts.datasource import DatasourceKind
-from smartdata.graph import Neo4jGraphStore
-from smartdata.graph.ports import NullGraphStore
-from smartdata.scan import ScanGraphBuilder
+from qaneris.contracts import DatasetInfo, Datasource, FieldInfo
+from qaneris.contracts.datasource import DatasourceKind
+from qaneris.graph import Neo4jGraphStore
+from qaneris.graph.ports import NullGraphStore
+from qaneris.scan import ScanGraphBuilder
 from tests.integration._neo4j_fake import FakeNeo4jDriver
 from tests.integration._neo4j_fake import graph_store as _store_on
 
@@ -258,7 +258,7 @@ def test_the_real_store_implements_the_port_method() -> None:
 
 def test_the_port_and_the_store_agree_on_the_signature() -> None:
     """The Protocol method and the implementation must stay callable the same way."""
-    from smartdata.graph.ports import GraphStore
+    from qaneris.graph.ports import GraphStore
 
     port = inspect.signature(GraphStore.delete_datasource_graph)
     implementation = inspect.signature(Neo4jGraphStore.delete_datasource_graph)

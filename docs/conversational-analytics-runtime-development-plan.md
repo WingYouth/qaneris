@@ -1,4 +1,4 @@
-# SmartData Conversational Analytics Runtime & Federated Query Development Plan(对话式分析运行时与联合查询开发计划)
+# Qaneris Conversational Analytics Runtime & Federated Query Development Plan(对话式分析运行时与联合查询开发计划)
 
 **Version(版本)：1.1**  
 **Implementation Baseline(实现代码基线)：`main(主分支)@318f44ee8c3540ed813366c490538b72b960c427`；其后仅增加/修订本开发文档**  
@@ -11,7 +11,7 @@
 
 本轮开发只解决一件产品问题：
 
-> 让 SmartData(智能数据平台) 从“单次、单数据源、容易因意图置信度提前停止的问数页面”，演进为“同一工作区内可持续对话、可记忆、可基于真实数据库结果回答、可按受控方式整合多个数据源”的智能问数工作区。
+> 让 Qaneris(智能数据平台) 从“单次、单数据源、容易因意图置信度提前停止的问数页面”，演进为“同一工作区内可持续对话、可记忆、可基于真实数据库结果回答、可按受控方式整合多个数据源”的智能问数工作区。
 
 本轮不是推翻现有 Query Engine(查询引擎)，而是在当前已通过验证的单源安全查询链上增加 Conversation(会话)、Run Runtime(运行实例运行时) 与 Federation(联合查询) 三个上层能力。
 
@@ -40,9 +40,9 @@
 
 正式入口仍然位于：
 
-- `smartdata/application/service.py -> SmartDataService.ask()`
-- `smartdata/application/service.py -> SmartDataService.ask_stream()`
-- `smartdata/application/service.py -> _ask_event_records()`
+- `qaneris/application/service.py -> QanerisService.ask()`
+- `qaneris/application/service.py -> QanerisService.ask_stream()`
+- `qaneris/application/service.py -> _ask_event_records()`
 
 当前请求契约 `AskRequest(问数请求)` 只有：
 
@@ -70,7 +70,7 @@ resume_token(恢复标识)
 
 当前：
 
-`smartdata/semantic/clarification.py -> ClarificationBuilder(澄清构造器)`
+`qaneris/semantic/clarification.py -> ClarificationBuilder(澄清构造器)`
 
 存在以下逻辑：
 
@@ -134,7 +134,7 @@ GroundedQueryPlan(落地查询计划)
 - `parse_business_query()`
 - `answer_question()`
 
-但正式 `SmartDataService.ask()` 主链在执行完成后仍使用内部确定性 `_summarize()`，现有测试也明确要求正式 Phase 1(阶段一) 路径不调用模型的 `answer_question()`。
+但正式 `QanerisService.ask()` 主链在执行完成后仍使用内部确定性 `_summarize()`，现有测试也明确要求正式 Phase 1(阶段一) 路径不调用模型的 `answer_question()`。
 
 这保证了旧链稳定，但也限制了以下能力：
 
@@ -147,7 +147,7 @@ GroundedQueryPlan(落地查询计划)
 
 ### 1.6 当前已有 Agent Contract(智能体契约)，但没有正式 Agent Runtime(智能体运行时)
 
-`smartdata/contracts/agent.py` 已存在：
+`qaneris/contracts/agent.py` 已存在：
 
 - `TaskSpec(任务规格)`
 - `TaskState(任务状态)`
@@ -207,7 +207,7 @@ GroundedQueryPlan(落地查询计划)
 
 采用 Modular Monolith(模块化单体)。
 
-不拆微服务。部署仍是一个 SmartData(智能数据平台) 应用；代码内部建立严格依赖边界。
+不拆微服务。部署仍是一个 Qaneris(智能数据平台) 应用；代码内部建立严格依赖边界。
 
 ```mermaid
 flowchart TD
@@ -268,12 +268,12 @@ Runtime(运行时) -> SQLAlchemy(SQLAlchemy 库)         禁止
 
 ## 4. 代码结构
 
-不进行全仓大重构。本轮只新增少量顶层模块，并逐步把新增职责从 `SmartDataService(智能数据服务)` 中隔离出去。
+不进行全仓大重构。本轮只新增少量顶层模块，并逐步把新增职责从 `QanerisService(智能数据服务)` 中隔离出去。
 
 建议结构：
 
 ```text
-smartdata/
+qaneris/
 ├── conversation/
 │   ├── models.py
 │   ├── repository.py
@@ -1548,6 +1548,6 @@ SQLite
 
 > Conversation(会话) 管上下文；Runtime(运行时) 管状态；Federation(联合编排) 管多个单源任务；Query Engine(查询引擎) 管单源可信查询；Merger(合并器) 只做白名单确定性合并；Answer Composer(答案编排器) 只根据已经验证的数据组织回答。
 
-如果某个功能需要破坏这个依赖方向才能实现，应先修改设计，而不是把逻辑继续堆进 `SmartDataService(智能数据服务)`。
+如果某个功能需要破坏这个依赖方向才能实现，应先修改设计，而不是把逻辑继续堆进 `QanerisService(智能数据服务)`。
 
 这条边界是本轮保持高内聚、低耦合、单一职责、状态可控、失败可恢复、过程可观测、权限最小化和整体简单性的核心。

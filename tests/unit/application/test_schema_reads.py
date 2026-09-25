@@ -17,9 +17,9 @@ from typing import Any
 
 import pytest
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.contracts import (
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.contracts import (
     DatasetInfo,
     DatasourceCreate,
     FieldInfo,
@@ -32,17 +32,17 @@ from smartdata.contracts import (
 def unconfigured(monkeypatch) -> None:
     """Make the deployment genuinely model-free.
 
-    ``SmartDataService(model=None)`` means "not supplied", not "no model": the constructor then
+    ``QanerisService(model=None)`` means "not supplied", not "no model": the constructor then
     resolves one from the environment. A deployment with no model configured is the state where
     ``from_environment`` itself returns ``None``, so that is what these tests reproduce.
     """
     monkeypatch.setattr(
-        "smartdata.application.service.AiyallmSchemaModel.from_environment",
+        "qaneris.application.service.AiyallmSchemaModel.from_environment",
         classmethod(lambda cls: None),
     )
 
 
-def seed(instance: SmartDataService, name: str = "sales") -> str:
+def seed(instance: QanerisService, name: str = "sales") -> str:
     """Register one real SQLite datasource, so the create path runs for real.
 
     The connection test in ``create_datasource`` opens the file, so the workspace database is
@@ -63,7 +63,7 @@ def seed(instance: SmartDataService, name: str = "sales") -> str:
 
 
 def test_list_supported_adapters_reports_the_registry(unconfigured) -> None:
-    adapters = SmartDataService(Catalog(":memory:")).list_supported_adapters()
+    adapters = QanerisService(Catalog(":memory:")).list_supported_adapters()
 
     assert adapters, "the installation registers adapters"
     by_driver = {item["driver"]: item for item in adapters}
@@ -76,7 +76,7 @@ def test_list_supported_adapters_reports_the_registry(unconfigured) -> None:
 
 
 def test_get_schema_context_returns_the_normalized_structure(tmp_path, unconfigured) -> None:
-    instance = SmartDataService(Catalog(tmp_path / "catalog.db"), model=None)
+    instance = QanerisService(Catalog(tmp_path / "catalog.db"), model=None)
     datasource_id = seed(instance)
 
     context = instance.get_schema_context("default")
@@ -94,7 +94,7 @@ def test_get_schema_context_returns_the_normalized_structure(tmp_path, unconfigu
 
 
 def test_get_schema_context_is_scoped_to_the_workspace(tmp_path, unconfigured) -> None:
-    instance = SmartDataService(Catalog(tmp_path / "catalog.db"), model=None)
+    instance = QanerisService(Catalog(tmp_path / "catalog.db"), model=None)
     seed(instance, "sales")
 
     assert instance.get_schema_context("default")["datasources"]
@@ -102,7 +102,7 @@ def test_get_schema_context_is_scoped_to_the_workspace(tmp_path, unconfigured) -
 
 
 def test_search_datasets_matches_dataset_and_field_names(tmp_path, unconfigured) -> None:
-    instance = SmartDataService(Catalog(tmp_path / "catalog.db"), model=None)
+    instance = QanerisService(Catalog(tmp_path / "catalog.db"), model=None)
     datasource_id = seed(instance)
 
     # Published datasets normally come from a scan; store the structures directly so the search
@@ -133,7 +133,7 @@ def test_search_datasets_matches_dataset_and_field_names(tmp_path, unconfigured)
 
 
 def test_search_datasets_is_scoped_to_the_workspace(tmp_path, unconfigured) -> None:
-    instance = SmartDataService(Catalog(tmp_path / "catalog.db"), model=None)
+    instance = QanerisService(Catalog(tmp_path / "catalog.db"), model=None)
     datasource_id = seed(instance)
 
     instance.catalog.replace_datasets(
@@ -146,7 +146,7 @@ def test_search_datasets_is_scoped_to_the_workspace(tmp_path, unconfigured) -> N
 
 
 def test_list_relations_and_mappings_round_trip(tmp_path, unconfigured) -> None:
-    instance = SmartDataService(Catalog(tmp_path / "catalog.db"), model=None)
+    instance = QanerisService(Catalog(tmp_path / "catalog.db"), model=None)
     datasource_id = seed(instance)
     relation = RelationInfo(
         datasource_id=datasource_id,
@@ -173,7 +173,7 @@ def test_list_relations_and_mappings_round_trip(tmp_path, unconfigured) -> None:
 
 
 def test_summarize_schema_falls_back_without_a_model(tmp_path, unconfigured) -> None:
-    instance = SmartDataService(Catalog(tmp_path / "catalog.db"), model=None)
+    instance = QanerisService(Catalog(tmp_path / "catalog.db"), model=None)
     seed(instance)
 
     summary = instance.summarize_schema("default")
@@ -192,7 +192,7 @@ def test_summarize_schema_uses_the_configured_model(tmp_path, unconfigured) -> N
             return "model summary"
 
     model = RecordingModel()
-    instance = SmartDataService(Catalog(tmp_path / "catalog.db"), model=model)
+    instance = QanerisService(Catalog(tmp_path / "catalog.db"), model=model)
     seed(instance)
 
     assert instance.summarize_schema("default") == "model summary"

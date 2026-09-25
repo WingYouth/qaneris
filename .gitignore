@@ -10,7 +10,7 @@ build/
 .env
 .env.acceptance
 .claude/
-smartdata.db
+qaneris.db
 profiles/
 examples/*.db
 .DS_Store

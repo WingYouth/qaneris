@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
-from smartdata.catalog import Catalog
-from smartdata.contracts import (
+from qaneris.catalog import Catalog
+from qaneris.contracts import (
     ConnectionEndpoint,
     ConnectionProfile,
     DatasetInfo,
@@ -19,8 +19,8 @@ from smartdata.contracts import (
     ScanStatus,
     SecureDatasourceCreate,
 )
-from smartdata.graph.reading import GraphDataObject, GraphDatasource, GraphField, GraphStructure
-from smartdata.scanning import MultiDatabaseScanRunner, SnapshotGraphValidator
+from qaneris.graph.reading import GraphDataObject, GraphDatasource, GraphField, GraphStructure
+from qaneris.scanning import MultiDatabaseScanRunner, SnapshotGraphValidator
 
 
 def request(name, path, *, workspace_id="default") -> SecureDatasourceCreate:

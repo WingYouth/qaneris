@@ -1,5 +1,5 @@
-from smartdata.adapters.time_series.influxdb import InfluxDBAdapter
-from smartdata.contracts import DatasetInfo
+from qaneris.adapters.time_series.influxdb import InfluxDBAdapter
+from qaneris.contracts import DatasetInfo
 
 
 def test_connection_uses_authenticated_bucket_read() -> None:

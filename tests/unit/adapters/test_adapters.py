@@ -3,12 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from smartdata.adapters.base import DataSourceAdapter
-from smartdata.adapters.factory import create_adapter
-from smartdata.adapters.registry import get_adapter_class, register_adapter
-from smartdata.adapters.relational.sqlite import SQLiteAdapter
-from smartdata.contracts import DatasetInfo, NormalizedResult, RelationInfo
-from smartdata.querying.validation.read_only import UnsafeQueryError
+from qaneris.adapters.base import DataSourceAdapter
+from qaneris.adapters.factory import create_adapter
+from qaneris.adapters.registry import get_adapter_class, register_adapter
+from qaneris.adapters.relational.sqlite import SQLiteAdapter
+from qaneris.contracts import DatasetInfo, NormalizedResult, RelationInfo
+from qaneris.querying.validation.read_only import UnsafeQueryError
 
 
 class DummyAdapter(DataSourceAdapter):

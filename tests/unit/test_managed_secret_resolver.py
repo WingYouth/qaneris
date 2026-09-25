@@ -16,18 +16,18 @@ from pathlib import Path
 
 import pytest
 
-from smartdata.common.errors import (
+from qaneris.common.errors import (
     CredentialStoreConfigurationError,
     ManagedSecretNotFoundError,
 )
-from smartdata.connections.managed_store import ManagedCredentialStore
-from smartdata.connections.secrets import (
+from qaneris.connections.managed_store import ManagedCredentialStore
+from qaneris.connections.secrets import (
     EnvironmentSecretProvider,
     FileSecretProvider,
     ManagedSecretProvider,
     SecretResolver,
 )
-from smartdata.contracts.connection import (
+from qaneris.contracts.connection import (
     AuthenticationConfig,
     AuthenticationMethod,
     ConnectionEndpoint,
@@ -36,14 +36,14 @@ from smartdata.contracts.connection import (
     SecretReference,
     TLSConfig,
 )
-from smartdata.contracts.credentials import ManagedSecretKind
+from qaneris.contracts.credentials import ManagedSecretKind
 
 PASSWORD_MARKER = "UNIQUE_PASSWORD_MARKER"
 TOKEN_MARKER = "UNIQUE_TOKEN_MARKER"
 CA_MARKER = "UNIQUE_CA_MARKER"
 
-MASTER_KEY_ENV = "SMARTDATA_MASTER_KEY"
-STORE_DIR_ENV = "SMARTDATA_SECRET_STORE_DIR"
+MASTER_KEY_ENV = "QANERIS_MASTER_KEY"
+STORE_DIR_ENV = "QANERIS_SECRET_STORE_DIR"
 
 
 def environment(tmp_path: Path) -> dict[str, str]:
@@ -94,10 +94,10 @@ def configured(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ManagedCreden
 
 
 def test_the_environment_provider_is_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SMARTDATA_TEST_ENV_SECRET", PASSWORD_MARKER)
+    monkeypatch.setenv("QANERIS_TEST_ENV_SECRET", PASSWORD_MARKER)
 
     resolved = SecretResolver().resolve(
-        SecretReference(provider=SecretProviderKind.ENVIRONMENT, identifier="SMARTDATA_TEST_ENV_SECRET")
+        SecretReference(provider=SecretProviderKind.ENVIRONMENT, identifier="QANERIS_TEST_ENV_SECRET")
     )
 
     assert resolved == PASSWORD_MARKER
@@ -107,11 +107,11 @@ def test_the_environment_provider_is_unchanged(monkeypatch: pytest.MonkeyPatch) 
 def test_a_missing_environment_secret_still_reports_its_own_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("SMARTDATA_TEST_ABSENT", raising=False)
+    monkeypatch.delenv("QANERIS_TEST_ABSENT", raising=False)
 
     with pytest.raises(ValueError, match="environment secret is not configured"):
         SecretResolver().resolve(
-            SecretReference(provider=SecretProviderKind.ENVIRONMENT, identifier="SMARTDATA_TEST_ABSENT")
+            SecretReference(provider=SecretProviderKind.ENVIRONMENT, identifier="QANERIS_TEST_ABSENT")
         )
 
 
@@ -188,7 +188,7 @@ def test_materializing_a_profile_resolves_managed_tls_material(
 def test_materializing_mixes_managed_and_environment_references(
     configured: ManagedCredentialStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("SMARTDATA_TEST_ENV_SECRET", TOKEN_MARKER)
+    monkeypatch.setenv("QANERIS_TEST_ENV_SECRET", TOKEN_MARKER)
     info = configured.create(ManagedSecretKind.PASSWORD, PASSWORD_MARKER)
     connection = ConnectionProfile(
         driver="postgresql",
@@ -199,7 +199,7 @@ def test_materializing_mixes_managed_and_environment_references(
         tls=TLSConfig(
             enabled=True,
             ca_certificate=SecretReference(
-                provider=SecretProviderKind.ENVIRONMENT, identifier="SMARTDATA_TEST_ENV_SECRET"
+                provider=SecretProviderKind.ENVIRONMENT, identifier="QANERIS_TEST_ENV_SECRET"
             ),
         ),
     )
@@ -221,14 +221,14 @@ def test_an_unconfigured_managed_store_does_not_break_environment_or_file_secret
     """Without a master key, a deployment that never uses managed secrets keeps working."""
     monkeypatch.delenv(STORE_DIR_ENV, raising=False)
     monkeypatch.delenv(MASTER_KEY_ENV, raising=False)
-    monkeypatch.setenv("SMARTDATA_TEST_ENV_SECRET", PASSWORD_MARKER)
+    monkeypatch.setenv("QANERIS_TEST_ENV_SECRET", PASSWORD_MARKER)
     secret_file = tmp_path / "secret.txt"
     secret_file.write_text(TOKEN_MARKER, encoding="utf-8")
 
     resolver = SecretResolver()
 
     assert resolver.resolve(
-        SecretReference(provider=SecretProviderKind.ENVIRONMENT, identifier="SMARTDATA_TEST_ENV_SECRET")
+        SecretReference(provider=SecretProviderKind.ENVIRONMENT, identifier="QANERIS_TEST_ENV_SECRET")
     ) == PASSWORD_MARKER
     assert resolver.resolve(
         SecretReference(provider=SecretProviderKind.FILE, identifier=str(secret_file))
@@ -240,7 +240,7 @@ def test_an_unconfigured_managed_store_fails_only_for_a_managed_reference(
 ) -> None:
     monkeypatch.delenv(STORE_DIR_ENV, raising=False)
     monkeypatch.delenv(MASTER_KEY_ENV, raising=False)
-    monkeypatch.setenv("SMARTDATA_TEST_ENV_SECRET", PASSWORD_MARKER)
+    monkeypatch.setenv("QANERIS_TEST_ENV_SECRET", PASSWORD_MARKER)
     resolver = SecretResolver()
 
     with pytest.raises(CredentialStoreConfigurationError) as raised:
@@ -249,7 +249,7 @@ def test_an_unconfigured_managed_store_fails_only_for_a_managed_reference(
     assert raised.value.code == "credential_store_configuration_error"
     # The very same resolver still serves the other providers.
     assert resolver.resolve(
-        SecretReference(provider=SecretProviderKind.ENVIRONMENT, identifier="SMARTDATA_TEST_ENV_SECRET")
+        SecretReference(provider=SecretProviderKind.ENVIRONMENT, identifier="QANERIS_TEST_ENV_SECRET")
     ) == PASSWORD_MARKER
 
 
