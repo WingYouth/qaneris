@@ -71,6 +71,7 @@ def register_conversation_routes(
             "run_id": run.run_id,
             "conversation_id": run.conversation_id,
             "status": run.status,
+            "run_kind": run.run_kind,
             "created_at": run.created_at,
         }
 

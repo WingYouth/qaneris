@@ -1,19 +1,24 @@
 """Conversation run execution over one existing Ask invocation per attempt."""
 
+import re
 from uuid import uuid4
 
 from smartdata.capabilities.ask import AskCapability
 from smartdata.common.errors import SmartDataError
 from smartdata.common.redaction import safe_error
 from smartdata.contracts import AskRequest, AskResponse, AskStatus
+from smartdata.contracts.semantic import BusinessObjective
 from smartdata.conversation.context import ConversationContextResolver
 from smartdata.conversation.memory import confirmed_memory
 from smartdata.conversation.models import Message, now
 from smartdata.conversation.ports import ConversationRepository
 from smartdata.conversation.service import ConversationService
+from smartdata.diagnostics.coordinator import DiagnosticCoordinator, DiagnosticFailure
+from smartdata.diagnostics.repository import SQLiteDiagnosticRepository
 from smartdata.runtime.models import Run, RunStatus
 from smartdata.runtime.ports import RunRepository, RunScheduler
 from smartdata.runtime.state_machine import transition
+from smartdata.semantic.intent import RuleExtractor
 
 _ORDER = [
     RunStatus.CONTEXTUALIZING,
@@ -29,6 +34,7 @@ _TERMINAL = {
     RunStatus.BLOCKED,
     RunStatus.WAITING_USER,
 }
+_DIAGNOSTIC_FOLLOWUP = re.compile(r"(?:再深入看看|深入分析|继续诊断|继续分析原因|再看看.*原因)")
 
 
 class RunOrchestrator:
@@ -39,6 +45,8 @@ class RunOrchestrator:
         ask: AskCapability,
         resolver: ConversationContextResolver,
         scheduler: RunScheduler,
+        diagnostic_model=None,
+        diagnostic_repository=None,
     ):
         self.conversations = conversations
         self.runs = runs
@@ -46,6 +54,18 @@ class RunOrchestrator:
         self.resolver = resolver
         self.scheduler = scheduler
         self.messages = ConversationService(conversations)
+        candidate = diagnostic_model if diagnostic_model is not None else resolver.model
+        model = (
+            candidate
+            if candidate is not None
+            and all(
+                hasattr(candidate, name)
+                for name in ("propose_evidence_questions", "synthesize_diagnosis")
+            )
+            else None
+        )
+        repository = diagnostic_repository or SQLiteDiagnosticRepository(runs.path)
+        self.diagnostics = DiagnosticCoordinator(self, repository, model)
         self.runs.recover_interrupted()
         self._recover_completions()
         self._recover_clarifications()
@@ -59,6 +79,16 @@ class RunOrchestrator:
             response = AskResponse.model_validate(run.response_json)
             self.messages.assistant_message(run.conversation_id, response.answer, run.run_id)
             memory = self.conversations.memory(run.conversation_id)
+            if run.run_kind == "diagnostic":
+                if not any(item.get("run_id") == run.run_id for item in memory.diagnostic_findings):
+                    self.diagnostics.record_memory(
+                        run,
+                        run.resolved_question or response.question,
+                        response.answer,
+                        memory,
+                    )
+                self.runs.append_event(run.run_id, "RUN_COMPLETED", {})
+                continue
             if (
                 response.business_query is not None
                 and memory.last_run_id != run.run_id
@@ -67,7 +97,7 @@ class RunOrchestrator:
             ):
                 self.conversations.put_memory(
                     run.conversation_id,
-                    confirmed_memory(response, run.run_id),
+                    confirmed_memory(response, run.run_id, memory),
                     self.conversations.memory_revision(run.conversation_id),
                 )
             self.runs.append_event(run.run_id, "RUN_COMPLETED", {})
@@ -194,19 +224,29 @@ class RunOrchestrator:
                 }
                 else (getattr(error, "code", "run_failed"))
             )
-            blocked = code in {
-                "conversation_context_model_unavailable",
-                "multi_source_scope_requires_iq05",
-            }
-            retryable = code in {
-                "model_invocation_failed",
-                "graph_unavailable",
-                "datasource_unavailable",
-                "timeout",
-                "temporary_unavailable",
-                "rate_limited",
-                "transient_network",
-            }
+            blocked = (
+                code
+                in {
+                    "conversation_context_model_unavailable",
+                    "multi_source_scope_requires_iq05",
+                }
+                or isinstance(error, DiagnosticFailure)
+                and error.blocked
+            )
+            retryable = (
+                code
+                in {
+                    "model_invocation_failed",
+                    "graph_unavailable",
+                    "datasource_unavailable",
+                    "timeout",
+                    "temporary_unavailable",
+                    "rate_limited",
+                    "transient_network",
+                }
+                or isinstance(error, DiagnosticFailure)
+                and error.retryable
+            )
             target = RunStatus.BLOCKED if blocked else RunStatus.FAILED
             message = safe_error(error)[:240] if isinstance(error, SmartDataError) else code
             current = self._save(
@@ -243,11 +283,25 @@ class RunOrchestrator:
         question = f"{original}。用户澄清：{clarifications[-1]}" if clarifications else original
         memory = self.conversations.memory(run.conversation_id)
         resolved = self.resolver.resolve(question, memory, messages)
-        run = self._save(run.model_copy(update={"resolved_question": resolved}))
+        diagnostic = run.run_kind == "diagnostic" or (
+            RuleExtractor().extract(resolved).objective_hint == BusinessObjective.DIAGNOSIS
+            or bool(memory.diagnostic_findings and _DIAGNOSTIC_FOLLOWUP.search(original))
+        )
+        run = self._save(
+            run.model_copy(
+                update={
+                    "resolved_question": resolved,
+                    "run_kind": "diagnostic" if diagnostic else "normal",
+                }
+            )
+        )
         self.runs.append_event(run.run_id, "CONTEXT_READY", {"resolved_question": resolved})
         if self._cancel_if_requested(run):
             return
         run = self._save(transition(run, RunStatus.DISCOVERING))
+        if diagnostic:
+            self.diagnostics.drive(run, conversation, resolved, memory, clarifications)
+            return
         request = AskRequest(
             question=resolved,
             workspace_id=conversation.workspace_id,
@@ -333,7 +387,9 @@ class RunOrchestrator:
         if response.business_query is not None:
             self.conversations.put_memory(
                 run.conversation_id,
-                confirmed_memory(response, run.run_id),
+                confirmed_memory(
+                    response, run.run_id, self.conversations.memory(run.conversation_id)
+                ),
                 self.conversations.memory_revision(run.conversation_id),
             )
         self.runs.append_event(run.run_id, "RUN_COMPLETED", {})

@@ -28,6 +28,16 @@ def working_set(
             ],
             "requested_output": [item[:100] for item in memory.requested_output[:8]],
             "last_run_id": memory.last_run_id,
+            "diagnostic_findings": [
+                {
+                    "target_summary": str(item.get("target_summary", ""))[:120],
+                    "statement": str(item.get("statement", ""))[:240],
+                    "evidence_refs": item.get("evidence_refs", [])[-3:],
+                    "scan_version": item.get("scan_version"),
+                    "observed_at": item.get("observed_at"),
+                }
+                for item in memory.diagnostic_findings[-2:]
+            ],
         }
     remaining = max(0, max_chars - len(json.dumps(semantic, ensure_ascii=False)))
     selected: list[dict[str, str]] = []
@@ -76,7 +86,9 @@ class ConversationContextResolver:
         context = working_set(messages, memory)
         resolved = self.model.resolve_followup(question, context).strip()
         if (
-            not resolved or len(resolved) > 2000 or _PHYSICAL.search(resolved)
+            not resolved
+            or len(resolved) > 2000
+            or _PHYSICAL.search(resolved)
             or _safe_value(resolved) != resolved
         ):
             raise ValueError("invalid_context_resolution")

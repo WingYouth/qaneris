@@ -32,6 +32,9 @@ class SQLiteRunRepository:
                     public_payload_json TEXT NOT NULL,
                     PRIMARY KEY(run_id, sequence));
             """)
+            columns = {row[1] for row in db.execute("PRAGMA table_info(run)")}
+            if "run_kind" not in columns:
+                db.execute("ALTER TABLE run ADD COLUMN run_kind TEXT NOT NULL DEFAULT 'normal'")
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -66,7 +69,11 @@ class SQLiteRunRepository:
                     return self._run(existing)
             try:
                 db.execute(
-                    "INSERT INTO run VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO run (id, conversation_id, user_message_id, workspace_id, "
+                    "status, current_stage, revision, attempt, cancel_requested, resolved_question, "
+                    "response_json, failure_code, failure_message, retryable, max_rows, "
+                    "client_request_id, created_at, updated_at, completed_at, run_kind) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         run.run_id,
                         run.conversation_id,
@@ -87,6 +94,7 @@ class SQLiteRunRepository:
                         run.created_at.isoformat(),
                         run.updated_at.isoformat(),
                         run.completed_at.isoformat() if run.completed_at else None,
+                        run.run_kind,
                     ),
                 )
             except sqlite3.IntegrityError:
@@ -114,7 +122,7 @@ class SQLiteRunRepository:
             cursor = db.execute(
                 """UPDATE run SET status=?, current_stage=?, revision=?, attempt=?,
                 cancel_requested=?, resolved_question=?, response_json=?, failure_code=?,
-                failure_message=?, retryable=?, updated_at=?, completed_at=?
+                failure_message=?, retryable=?, updated_at=?, completed_at=?, run_kind=?
                 WHERE id=? AND revision=?""",
                 (
                     updated.status,
@@ -129,6 +137,7 @@ class SQLiteRunRepository:
                     int(updated.retryable),
                     updated.updated_at.isoformat(),
                     updated.completed_at.isoformat() if updated.completed_at else None,
+                    updated.run_kind,
                     updated.run_id,
                     expected_revision,
                 ),

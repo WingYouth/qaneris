@@ -54,4 +54,5 @@ class SemanticMemory(BaseModel):
     last_run_id: str | None = None
     last_result_shape: dict[str, Any] | None = None
     evidence_refs: list[str] = Field(default_factory=list)
+    diagnostic_findings: list[dict[str, Any]] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=now)

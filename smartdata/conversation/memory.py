@@ -4,7 +4,9 @@ from smartdata.contracts import AskResponse
 from smartdata.conversation.models import SemanticMemory, now
 
 
-def confirmed_memory(response: AskResponse, run_id: str) -> SemanticMemory:
+def confirmed_memory(
+    response: AskResponse, run_id: str, previous: SemanticMemory | None = None
+) -> SemanticMemory:
     query = response.business_query
     if query is None:
         raise ValueError("completed Ask has no confirmed business query")
@@ -28,5 +30,6 @@ def confirmed_memory(response: AskResponse, run_id: str) -> SemanticMemory:
         last_run_id=run_id,
         last_result_shape=shape,
         evidence_refs=[f"evidence:{run_id}"] if response.evidence else [],
+        diagnostic_findings=previous.diagnostic_findings if previous else [],
         updated_at=now(),
     )

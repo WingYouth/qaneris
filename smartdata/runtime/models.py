@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -30,6 +30,7 @@ class Run(BaseModel):
     user_message_id: str
     workspace_id: str
     status: RunStatus = RunStatus.CREATED
+    run_kind: Literal["normal", "diagnostic"] = "normal"
     current_stage: str = "created"
     revision: int = 0
     attempt: int = 1

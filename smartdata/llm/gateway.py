@@ -111,9 +111,7 @@ class AiyallmSchemaModel:
                 timeout=timeout,
             )
         except AiyallmError as error:
-            raise ModelInvocationError(
-                f"模型网关配置无效：{self._detail(error)}"
-            ) from error
+            raise ModelInvocationError(f"模型网关配置无效：{self._detail(error)}") from error
 
     @classmethod
     def from_environment(cls) -> AiyallmSchemaModel | None:
@@ -145,9 +143,7 @@ class AiyallmSchemaModel:
         return detail[:_MAX_DETAIL]
 
     @classmethod
-    def _collect_detail(
-        cls, error: BaseException, collected: list[str], depth: int
-    ) -> None:
+    def _collect_detail(cls, error: BaseException, collected: list[str], depth: int) -> None:
         if depth > 3:
             return
         text = str(error).strip()
@@ -201,9 +197,7 @@ class AiyallmSchemaModel:
             json.dumps({"question": question, "scanned_structure": context}, ensure_ascii=False),
         )
 
-    def parse_business_query(
-        self, question: str, rule_facts: dict[str, Any]
-    ) -> BusinessQuery:
+    def parse_business_query(self, question: str, rule_facts: dict[str, Any]) -> BusinessQuery:
         content = self._chat(
             "你是业务查询意图解析器。只表达业务目标、实体、指标、维度、业务过滤、自然时间、"
             "比较、衍生、排名、期望输出、歧义和置信度。不得输出数据源 ID、表名、集合名、"
@@ -231,7 +225,7 @@ class AiyallmSchemaModel:
             "只把当前问题补全成独立业务问题。只允许使用 confirmed_semantic_memory 中已经确认的语义。"
             "当前用户明确表达优先于历史；不得增加不存在的业务事实。"
             "不得输出数据库 ID、表名、集合名、字段名、SQL、Mongo/Redis 原生命令。"
-            "不要执行查询，不要回答问题。只返回 JSON: {\"resolved_question\": \"...\"}。",
+            '不要执行查询，不要回答问题。只返回 JSON: {"resolved_question": "..."}。',
             json.dumps({"question": question, "context": context}, ensure_ascii=False),
             json_response=True,
         )
@@ -308,6 +302,34 @@ class AiyallmSchemaModel:
             "你是数据问答助手。只根据给定的真实查询结果回答，不得补充、推测或编造数字。"
             "结果截断时必须明确说明。",
             json.dumps({"question": question, "result": result}, ensure_ascii=False),
+        )
+
+    def propose_evidence_questions(self, context):
+        from smartdata.diagnostics.models import DiagnosticDecision
+
+        content = self._chat(
+            "你是受治理的数据诊断规划器。只能提出下一步需数据库验证的自然业务问题。"
+            "不得直接回答原因，不得输出 SQL、表名、字段名、数据源 ID、原生查询或思维链。"
+            "只依据诊断目标、已确认会话语义和已验证数据库观察，优先选择少量高价值问题。"
+            "历史诊断 finding 只帮助选择方向，不是当前数据库事实，必须重新查询验证。"
+            "首轮遇到下降问题时先验证下降和比较基准；基准不明确则请求具体业务澄清，不能默认环比。"
+            "证据足够时 action=stop；真正缺少业务定义时 action=clarify。"
+            "只返回 JSON 对象：action (query|clarify|stop), questions "
+            "(question, purpose, priority), clarification。",
+            context.model_dump_json(exclude_none=True),
+            json_response=True,
+        )
+        try:
+            return DiagnosticDecision.model_validate_json(content)
+        except ValidationError as error:
+            raise ModelInvocationError("诊断规划输出不符合契约") from error
+
+    def synthesize_diagnosis(self, context):
+        return self._chat(
+            "仅根据 verified observations 回答诊断问题。unavailable 只能作为数据缺口。"
+            "不得创造数字，不得把相关性表述为确定因果，必须指出数据缺口，结果截断时必须说明。"
+            "不得暴露 SQL 参数或内部推理过程。",
+            context.model_dump_json(exclude_none=True),
         )
 
 
