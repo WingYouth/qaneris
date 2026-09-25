@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { messageTurns } from "../../conversation/conversationState.js";
 import { runEventView } from "../../conversation/runEvents.js";
-import { runFailure, runView, STATUS_LABELS } from "../../conversation/runView.js";
+import { graphRescanRequired, runFailure, runView, STATUS_LABELS } from "../../conversation/runView.js";
 import { EvidencePanel } from "../ask/EvidencePanel.jsx";
 import { VisualizationPanel } from "../visualization/VisualizationPanel.jsx";
 
@@ -46,10 +46,11 @@ function RunTimeline({ events }) {
 
 const SOURCE_STATUS = { PLANNED: "等待", RUNNING: "查询中", COMPLETED: "完成", FAILED: "失败", WAITING_USER: "待确认", SKIPPED: "跳过" };
 
-function RunCard({ runId, run, events, message, onLoadRun, onAction, busy }) {
+function RunCard({ runId, run, events, message, onLoadRun, onAction, busy, canRescan }) {
   const view = runView(run);
   const [opened, setOpened] = useState(false);
   const status = run?.status;
+  const rescanRequired = graphRescanRequired(run);
   return <article className="message message--assistant"><span className="message__role">SmartData</span>
     <div className="run-card__head"><span className="status-pill" aria-live="polite">{STATUS_LABELS[status] || (run ? status : "历史回答")}</span>
       {view?.kind === "diagnostic" ? <span>诊断分析</span> : view?.kind === "federated" ? <span>联合分析</span> : null}</div>
@@ -58,7 +59,9 @@ function RunCard({ runId, run, events, message, onLoadRun, onAction, busy }) {
     {status === "CANCELLED" ? <p>此轮已取消。</p> : null}
     {status === "WAITING_USER" ? <ClarificationCard view={view} disabled={busy} onSubmit={(answer) => onAction(runId, "clarify", answer)} /> : null}
     {run && status !== "COMPLETED" && status !== "FAILED" && status !== "BLOCKED" && status !== "CANCELLED" && status !== "WAITING_USER" ? <button type="button" className="secondary-button" disabled={busy} onClick={() => onAction(runId, "cancel")}>取消</button> : null}
-    {status === "FAILED" && run.retryable ? <button type="button" className="secondary-button" disabled={busy} onClick={() => onAction(runId, "retry")}>重试</button> : null}
+    {status === "FAILED" && run.retryable ? <button type="button" className="secondary-button" disabled={busy}
+      title={rescanRequired && !canRescan ? "当前对话未绑定唯一数据源，请前往“数据源”页面重新扫描" : undefined}
+      onClick={() => onAction(runId, rescanRequired ? "rescan-retry" : "retry")}>{rescanRequired ? "重新扫描并重试" : "重试"}</button> : null}
     {run?.run_kind === "federated" ? <div className="federated-progress"><strong>数据源任务</strong>
       {(view?.sourceTasks || []).map((task) => <div key={task.task_id}>{task.datasource_id}<span>{SOURCE_STATUS[task.status] || "处理中"}</span></div>)}
       <p>合并：{events.some((e) => e.event_type === "MERGE_COMPLETED") || status === "COMPLETED" ? "完成" : events.some((e) => e.event_type === "MERGE_STARTED") ? "执行中" : "等待"}</p>
@@ -76,7 +79,7 @@ function RunCard({ runId, run, events, message, onLoadRun, onAction, busy }) {
   </article>;
 }
 
-export function MessageList({ messages, runs, events, latestRunId, onLoadRun, onAction, busy }) {
+export function MessageList({ messages, runs, events, latestRunId, onLoadRun, onAction, busy, canRescan }) {
   const scroll = useRef(null);
   const follow = useRef(true);
   useEffect(() => { if (follow.current) scroll.current?.scrollTo({ top: scroll.current.scrollHeight, behavior: "smooth" }); }, [messages, events, runs]);
@@ -90,10 +93,10 @@ export function MessageList({ messages, runs, events, latestRunId, onLoadRun, on
           ? <article className="message message--user" key={message.message_id}><span className="message__role">{message.message_kind === "clarification" ? "你的确认" : "你"}</span><p className="message__content">{message.content}</p></article>
           : message.message_id === lastAssistant?.message_id
             ? <RunCard key={message.message_id} runId={turn.runId} run={runs[turn.runId]} events={events[turn.runId] || []} message={message}
-                onLoadRun={onLoadRun} onAction={onAction} busy={busy} />
+                onLoadRun={onLoadRun} onAction={onAction} busy={busy} canRescan={canRescan} />
             : <article className="message message--assistant" key={message.message_id}><span className="message__role">SmartData · 澄清</span><p className="message__content">{message.content}</p></article>)}
         {!lastAssistant ? <RunCard runId={turn.runId} run={runs[turn.runId]} events={events[turn.runId] || []}
-          onLoadRun={onLoadRun} onAction={onAction} busy={busy} /> : null}
+          onLoadRun={onLoadRun} onAction={onAction} busy={busy} canRescan={canRescan} /> : null}
       </div>;
     })}
   </div>;

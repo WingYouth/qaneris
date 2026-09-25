@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { cancelRun, clarifyRun, createConversation, createRun, getConversation, getRun, listConversations, retryRun } from "../../api/conversations.js";
+import { scanDatasource } from "../../api/datasources.js";
 import { subscribeRunEvents } from "../../api/runStream.js";
 import { conversationReducer, conversationTitle, initialConversationState, latestRunId, RUN_BUSY } from "../../conversation/conversationState.js";
 import { shouldRefreshRun } from "../../conversation/runEvents.js";
@@ -123,6 +124,14 @@ export function ConversationWorkspace({ workspaceId, datasources, backendAvailab
       if (action === "clarify") await clarifyRun(runId, answer);
       if (action === "cancel") await cancelRun(runId);
       if (action === "retry") await retryRun(runId);
+      if (action === "rescan-retry") {
+        const datasourceIds = state.conversation?.datasource_scope || [];
+        if (datasourceIds.length !== 1) {
+          throw new Error("当前对话没有绑定唯一数据源，请前往“数据源”页面重新扫描后再重试。");
+        }
+        await scanDatasource(datasourceIds[0]);
+        await retryRun(runId);
+      }
       const run = await getRun(runId);
       dispatch({ type: "run", run });
       await refreshDetail(selectedId);
@@ -154,7 +163,8 @@ export function ConversationWorkspace({ workspaceId, datasources, backendAvailab
       {error ? <p className="conversation-error" role="alert">{error.message || "请求失败"}</p> : null}
       {streamError ? <p className="conversation-error" role="alert">事件连接中断：{streamError.message} <button type="button" onClick={() => setObserveVersion((n) => n + 1)}>重新连接</button></p> : null}
       <MessageList messages={state.messages} runs={state.runs} events={state.events} latestRunId={latest}
-        onLoadRun={loadRun} onAction={act} busy={busy} />
+        onLoadRun={loadRun} onAction={act} busy={busy}
+        canRescan={state.conversation?.datasource_scope?.length === 1} />
       <MessageComposer value={draft} onChange={(next) => { setDraft(next); if (pending.current?.question !== next.trim()) pending.current = null; }} onSend={send}
         disabled={inputDisabled || !selectedId} hint={!backendAvailable ? "后端不可用，暂不能发送新问题" : active && RUN_BUSY.has(active.status) ? "当前问题处理中" : !selectedId ? "请先创建对话" : "Enter 发送 · Shift+Enter 换行"} />
     </div>
