@@ -8,7 +8,7 @@ Baseline: `main@d43bfd9eead66c2060b248f4290c659fec1f4fe4`
 ## Frontend architecture
 
 - Analyze now mounts `ConversationWorkspace`. Datasource Manager and Excel Import keep their existing navigation and components.
-- `api/conversations.js` uses the existing relative-URL JSON client. `api/runStream.js` observes durable Run events by GET and resumes from the last sequence. `api/sse.js` is shared with the legacy Ask stream parser.
+- `api/conversations.js` uses the existing relative-URL JSON client. `api/runStream.js` observes durable Run events by GET and resumes from the last sequence. `api/sse.js` is shared with the legacy Ask stream parser. The Run SSE route continues observing when a retry or clarification resume is queued behind an older settled event.
 - `conversationState.js` stores messages, runs, events, and sequences by `run_id`. Historic answers render from persisted messages; complete historic results load when requested. The most recent Run and its public events replay on reopen.
 - Run views branch on the explicit `run_kind`: normal reuses `askViewFromResponse`, `VisualizationPanel`, and `EvidencePanel`; diagnostic shows evidence question progress and refs; federated projects `merged_result` into the existing visualization model and shows source tasks, merge state, and evidence.
 - The current Conversation ID is kept in the URL. The browser does not store credentials or semantic memory. Backend content is rendered as React text.
@@ -43,7 +43,7 @@ The existing local `sales` catalog source refused execution due to a missing sca
 - Frontend: `npm test` — 59 passed; `npm run build` — passed.
 - Backend: `QANERIS_ARTIFACT_ROOT=/private/tmp/qaneris-iq06-artifacts .venv/bin/pytest -q` — 1587 passed, 3 skipped. The artifact override is needed because the default external upload directory is outside the writable sandbox.
 - `ruff check .` and `git diff --check` — passed.
-- The full backend suite covers IQ-01 through IQ-05, legacy Ask API, CLI, MCP, Excel, and datasource behavior. No backend production code was changed for IQ-06.
+- The full backend suite covers IQ-01 through IQ-05, legacy Ask API, CLI, MCP, Excel, and datasource behavior. The only backend production change is the queued retry/clarification SSE contract fix.
 
 ## Security
 

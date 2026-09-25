@@ -11,7 +11,24 @@ const BLOCKED_MESSAGES = {
   conversation_context_model_unavailable: "上下文理解服务暂不可用，请稍后再试。",
   federation_planner_unavailable: "联合分析计划暂不可用。",
 };
-export function runFailure(run) { return BLOCKED_MESSAGES[run?.failure_code] || run?.failure_message || run?.failure_code || "执行未完成。"; }
+const FAILURE_MESSAGES = {
+  graph_unavailable: "数据源结构与已发布图结构不一致，需要重新扫描数据源后再重试。",
+};
+
+export function graphRescanRequired(run) {
+  if (run?.failure_code !== "graph_unavailable") return false;
+  const message = run?.failure_message;
+  return typeof message === "string"
+    && (message.includes("重新扫描数据源") || message.includes("扫描目录与 Neo4j 已发布结构不一致"));
+}
+
+export function runFailure(run) {
+  return BLOCKED_MESSAGES[run?.failure_code]
+    || FAILURE_MESSAGES[run?.failure_code]
+    || run?.failure_message
+    || run?.failure_code
+    || "执行未完成。";
+}
 
 export function runView(run) {
   if (!run) return null;
