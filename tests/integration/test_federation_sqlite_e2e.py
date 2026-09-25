@@ -6,24 +6,24 @@ from datetime import UTC, datetime
 
 from _neo4j_fake import FakeNeo4jDriver, graph_reader, graph_store
 
-from smartdata.adapters import create_adapter
-from smartdata.application.service import SmartDataService
-from smartdata.capabilities.ask import ServiceAskCapability
-from smartdata.catalog import Catalog
-from smartdata.contracts import Datasource
-from smartdata.contracts.profile import DataSourceProfile, ScanSnapshot
-from smartdata.contracts.semantic import BusinessQuery
-from smartdata.conversation.context import ConversationContextResolver
-from smartdata.conversation.repository import SQLiteConversationRepository
-from smartdata.conversation.service import ConversationService
-from smartdata.federation.models import FederatedPlanDraft
-from smartdata.graph.reading import GraphStructureRequest
-from smartdata.runtime.models import RunStatus
-from smartdata.runtime.orchestrator import RunOrchestrator
-from smartdata.runtime.repository import SQLiteRunRepository
-from smartdata.runtime.scheduler import InlineRunScheduler
-from smartdata.scan import ScanService
-from smartdata.semantic import SemanticAsset, SQLiteSemanticAssetRegistry
+from qaneris.adapters import create_adapter
+from qaneris.application.service import QanerisService
+from qaneris.capabilities.ask import ServiceAskCapability
+from qaneris.catalog import Catalog
+from qaneris.contracts import Datasource
+from qaneris.contracts.profile import DataSourceProfile, ScanSnapshot
+from qaneris.contracts.semantic import BusinessQuery
+from qaneris.conversation.context import ConversationContextResolver
+from qaneris.conversation.repository import SQLiteConversationRepository
+from qaneris.conversation.service import ConversationService
+from qaneris.federation.models import FederatedPlanDraft
+from qaneris.graph.reading import GraphStructureRequest
+from qaneris.runtime.models import RunStatus
+from qaneris.runtime.orchestrator import RunOrchestrator
+from qaneris.runtime.repository import SQLiteRunRepository
+from qaneris.runtime.scheduler import InlineRunScheduler
+from qaneris.scan import ScanService
+from qaneris.semantic import SemanticAsset, SQLiteSemanticAssetRegistry
 
 
 class Model:
@@ -140,7 +140,7 @@ def _setup(tmp_path):
                 field_path="order_id", updated_at=timestamp,
             ))
     model = Model()
-    service = SmartDataService(catalog, model=model, graph_reader=reader)
+    service = QanerisService(catalog, model=model, graph_reader=reader)
     conversations = SQLiteConversationRepository(str(catalog_path))
     runs = SQLiteRunRepository(str(catalog_path))
     runtime = RunOrchestrator(

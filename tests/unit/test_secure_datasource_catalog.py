@@ -21,12 +21,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from smartdata.catalog import Catalog
-from smartdata.common.errors import (
+from qaneris.catalog import Catalog
+from qaneris.common.errors import (
     DatasourceSecureProfileRequiredError,
     ManagedSecretIntegrityError,
 )
-from smartdata.contracts import (
+from qaneris.contracts import (
     AuthenticationConfig,
     AuthenticationMethod,
     ConnectionEndpoint,
@@ -422,7 +422,7 @@ def _ready_snapshot(catalog: Catalog, datasource_id: str):
     """An active READY snapshot for this datasource, shaped like one a real scan commits."""
     from datetime import UTC, datetime
 
-    from smartdata.contracts import DataSourceProfile, ScanSnapshot, ScanStatus
+    from qaneris.contracts import DataSourceProfile, ScanSnapshot, ScanStatus
 
     datasource = catalog.get_datasource(datasource_id)[0]
     now = datetime.now(UTC)

@@ -7,11 +7,11 @@ from pathlib import Path
 import pytest
 from _neo4j_fake import FakeNeo4jDriver, graph_reader, graph_store
 
-from smartdata.adapters import create_adapter
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.common.errors import GraphUnavailableError
-from smartdata.contracts import (
+from qaneris.adapters import create_adapter
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.common.errors import GraphUnavailableError
+from qaneris.contracts import (
     CompanyDataProfile,
     DataObjectProfile,
     DatasetInfo,
@@ -22,10 +22,10 @@ from smartdata.contracts import (
     NamespaceProfile,
     SemanticAssetType,
 )
-from smartdata.contracts.semantic import BusinessQuery
-from smartdata.graph import GraphStructureRequest, NullGraphReader
-from smartdata.scan import ScanGraphBuilder, ScanService
-from smartdata.semantic import (
+from qaneris.contracts.semantic import BusinessQuery
+from qaneris.graph import GraphStructureRequest, NullGraphReader
+from qaneris.scan import ScanGraphBuilder, ScanService
+from qaneris.semantic import (
     GraphSemanticRetriever,
     SemanticAsset,
     SemanticAssetBootstrap,
@@ -310,7 +310,7 @@ def test_service_retrieves_semantics_from_the_reader_it_is_given(tmp_path) -> No
     catalog_path = tmp_path / "catalog.db"
     registry_with(governed_assets(), catalog_path)
     reader = graph_reader(driver)
-    service = SmartDataService(Catalog(catalog_path), graph_reader=reader)
+    service = QanerisService(Catalog(catalog_path), graph_reader=reader)
 
     result = service.retrieve_semantics(
         sales_query(), requested_datasource_id=DATASOURCE_ID, limit=50
@@ -331,7 +331,7 @@ def test_service_fails_closed_when_the_graph_backend_is_unavailable(tmp_path) ->
     """No configured graph backend must raise, not report "no candidates"."""
     catalog_path = tmp_path / "catalog.db"
     registry_with(governed_assets(), catalog_path)
-    service = SmartDataService(Catalog(catalog_path))
+    service = QanerisService(Catalog(catalog_path))
 
     assert isinstance(service.graph_reader, NullGraphReader)
     with pytest.raises(GraphUnavailableError) as error:

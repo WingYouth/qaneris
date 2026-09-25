@@ -19,10 +19,10 @@ from typing import Any, Self
 
 import pytest
 
-from smartdata.adapters.document.couchdb import CouchDBAdapter
-from smartdata.adapters.document.mongodb import MongoDBAdapter
-from smartdata.adapters.wide_column.cassandra import CassandraAdapter
-from smartdata.contracts import DatasetInfo, FieldInfo
+from qaneris.adapters.document.couchdb import CouchDBAdapter
+from qaneris.adapters.document.mongodb import MongoDBAdapter
+from qaneris.adapters.wide_column.cassandra import CassandraAdapter
+from qaneris.contracts import DatasetInfo, FieldInfo
 
 # ── MongoDB 测试替身 ────────────────────────────────────────────────────────
 

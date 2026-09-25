@@ -29,7 +29,7 @@ def create_demo_database(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create the SmartData SQLite demo database")
+    parser = argparse.ArgumentParser(description="Create the Qaneris SQLite demo database")
     parser.add_argument(
         "output",
         nargs="?",

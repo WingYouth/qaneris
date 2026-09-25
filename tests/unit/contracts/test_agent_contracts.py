@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import ValidationError
 
-from smartdata.contracts import (
+from qaneris.contracts import (
     AgentTraceEvent,
     ArtifactRef,
     BudgetSpec,

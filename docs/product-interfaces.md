@@ -1,15 +1,15 @@
-# SmartData Product Interfaces(产品接口设计)
+# Qaneris Product Interfaces(产品接口设计)
 
 ## 1. Product Principle(产品原则)
 
-Web(网页端)、API(接口)、CLI(命令行)、Skill(技能)和 MCP(模型上下文协议)必须共享 SmartData Core(核心能力)与 Application Service(应用服务)。任何入口都不得复制 Intent(意图)、Retrieval(检索)、Grounding(物理绑定)、Planning(规划)、Validation(校验)或 Execution(执行)逻辑。
+Web(网页端)、API(接口)、CLI(命令行)、Skill(技能)和 MCP(模型上下文协议)必须共享 Qaneris Core(核心能力)与 Application Service(应用服务)。任何入口都不得复制 Intent(意图)、Retrieval(检索)、Grounding(物理绑定)、Planning(规划)、Validation(校验)或 Execution(执行)逻辑。
 
 ```text
 Web / API / CLI / Skill / MCP
               ↓
-SmartData Application Contract
+Qaneris Application Contract
               ↓
-SmartDataService
+QanerisService
               ↓
 Intent → Retrieval → Grounding → QueryPlan → Validation → Execution
 ```
@@ -19,8 +19,8 @@ Intent → Retrieval → Grounding → QueryPlan → Validation → Execution
 | Surface | Current implementation | Roadshow gap |
 | --- | --- | --- |
 | API | Ask 同步/POST SSE、Excel 上传、Secure Datasource 生命周期、Adapter、TLS capability 与 Credential/Certificate HTTP 接口 | legacy `POST /api/datasources` 保留兼容；新 Web 仅使用 `/api/datasources/secure` |
-| CLI | `doctor`、`acceptance phase1/ask`、`smartdata ask`（human/JSON/stream）、`source list/show/scan-one`、`source test/scan`、`source import-excel`、RS-CLI-02 的 `credential add/show/delete`、`certificate add-ca/add-client/inspect/delete`、`source test-one/create/update/delete` 已实现 | 最终 Secure CLI DONE（见 §7）；`source create` 仍不自动扫描，故创建后需显式 `scan-one` |
-| MCP | RS-MCP-01 DONE。stdio server 暴露 `list_adapters` / `get_schema_context` / `summarize_schema` / `search_dataset` / `list_relations` / `list_mappings` / `list_governance_suggestions` / `list_datasources` / `inspect_datasource` / `test_secure_datasource` / `create_secure_datasource` / `update_secure_datasource` / `delete_datasource` / `scan_datasource` / `register_sqlite` / `ask_data`。Tool 只调用 `SmartDataService`；Ask 只消费一次统一 `ask_stream()`，每个事件对应一个标准 MCP progress。MCP 只接收 `SecretReference` | Skill 已按该契约刷新；Web 端也消费统一 AskEvent |
+| CLI | `doctor`、`acceptance phase1/ask`、`qaneris ask`（human/JSON/stream）、`source list/show/scan-one`、`source test/scan`、`source import-excel`、RS-CLI-02 的 `credential add/show/delete`、`certificate add-ca/add-client/inspect/delete`、`source test-one/create/update/delete` 已实现 | 最终 Secure CLI DONE（见 §7）；`source create` 仍不自动扫描，故创建后需显式 `scan-one` |
+| MCP | RS-MCP-01 DONE。stdio server 暴露 `list_adapters` / `get_schema_context` / `summarize_schema` / `search_dataset` / `list_relations` / `list_mappings` / `list_governance_suggestions` / `list_datasources` / `inspect_datasource` / `test_secure_datasource` / `create_secure_datasource` / `update_secure_datasource` / `delete_datasource` / `scan_datasource` / `register_sqlite` / `ask_data`。Tool 只调用 `QanerisService`；Ask 只消费一次统一 `ask_stream()`，每个事件对应一个标准 MCP progress。MCP 只接收 `SecretReference` | Skill 已按该契约刷新；Web 端也消费统一 AskEvent |
 | Skill | RS-SKILL-01 DONE。Skill 只调用现行 MCP Tool，Secure Datasource 固定 Test → Create → Scan，Update 为 Test → Update → Scan；只传 `SecretReference`；回答只依据 `answer` / `result` / `evidence`；Progress 是执行阶段而非思维链 | `tests/unit/skill/test_skill_contract.py` 为静态契约守卫 |
 | Web | RS-WEB-01 + RS-VIZ-01 DONE：Vite + React 19 工作台、中文导航、POST SSE Ask/Trace、Secure Datasource Wizard/Manager、凭据证书上传、Excel 上传、Result/Evidence、受控 SVG 图表、production React dist 服务 | 生产部署无应用登录，须置于受控网络/VPN/反向代理访问控制后 |
 
@@ -68,7 +68,7 @@ Question
 
 ## 4. Ask Event / Streaming Contract(问数事件与流式契约)
 
-统一事件契约已经实现于 `smartdata/contracts/ask_events.py`，由 `SmartDataService.ask_stream()` 产出，`ask()` 与 `ask_stream()` 共享同一套内部编排（`_ask_event_records`），同步行为保持不变：
+统一事件契约已经实现于 `qaneris/contracts/ask_events.py`，由 `QanerisService.ask_stream()` 产出，`ask()` 与 `ask_stream()` 共享同一套内部编排（`_ask_event_records`），同步行为保持不变：
 
 ```text
 accepted
@@ -87,7 +87,7 @@ done
 事件字段为 `event_type` / `sequence` / `payload` / `occurred_at` / `correlation_id`。`payload` 是每个事件类型的小型公开投影，刻意不是内部领域模型；契约在 `AskEvent` 的字段校验器里做最后一道防线：递归丢弃模型私有推理字段（`reasoning` / `chain_of_thought` / `thoughts`），脱敏凭据形态的键与值（password / token / api_key / private_key / certificate / connection_string、`Bearer ...`、`sk-...`、PEM 文本、URL 内嵌凭据），并遮蔽绑定参数值。
 
 Transport(传输)：
-- CLI 已消费该契约（RS-CLI-01B）：`smartdata ask --stream` 输出 human 轨迹，`smartdata ask --stream --json` 输出严格 JSONL，每行就是契约自身事件的序列化结果，CLI 不私设第二套 event schema。
+- CLI 已消费该契约（RS-CLI-01B）：`qaneris ask --stream` 输出 human 轨迹，`qaneris ask --stream --json` 输出严格 JSONL，每行就是契约自身事件的序列化结果，CLI 不私设第二套 event schema。
 - API 已消费该契约（RS-STREAM-01B）：`POST /api/ask/stream` 把同一个 `ask_stream()` 事件流按 SSE 输出（见下方 §4.1）。Web 通过 POST + fetch/ReadableStream 解析并校验事件，且只展示白名单公开摘要。
 - MCP 已消费该契约（RS-MCP-01）：`ask_data` 把同一个 `ask_stream()` 事件流 1:1 映射为标准 MCP progress notification（`progress=event.sequence`、`message=event.event_type.value`、不传 `total`），终态响应取自事件 payload，不复制事件 schema。
 - Skill 不创建独立传输层，而是消费 MCP 的进度与最终结果。
@@ -109,7 +109,7 @@ Content-Type: application/json
 - 客户端断开时传输停止推进事件流，不继续写入已关闭连接；如果 `ask_stream()` 在契约之外异常中断，传输终止响应且**不伪造 `error` / `done`**，只在服务端记录一行不含消息内容的告警（仅异常类型）。
 - API 不复制 redaction(脱敏) 规则：安全边界就是 `AskEvent` 本身，传输层不得绕开，也不得另建一套。
 
-实测（真实 uvicorn + 真实模型网关 + `SMARTDATA_GRAPH_STORE=null`）：
+实测（真实 uvicorn + 真实模型网关 + `QANERIS_GRAPH_STORE=null`）：
 
 ```text
 HTTP/1.1 200 OK
@@ -134,7 +134,7 @@ data: {"event_type":"done","sequence":4,...}
 
 ### 4.2 Credential / Certificate API(凭据与证书接口，RS-CRED-01B DONE)
 
-固定 5 个产品入口，全部由 `smartdata/interfaces/api/credentials.py` 提供，全部只调用 `SmartDataService` 的公开凭据方法（`create_managed_secret` / `create_managed_client_identity` / `inspect_managed_secret` / `delete_managed_secret`），不直接触碰 Store / Validator / Catalog / Resolver：
+固定 5 个产品入口，全部由 `qaneris/interfaces/api/credentials.py` 提供，全部只调用 `QanerisService` 的公开凭据方法（`create_managed_secret` / `create_managed_client_identity` / `inspect_managed_secret` / `delete_managed_secret`），不直接触碰 Store / Validator / Catalog / Resolver：
 
 ```text
 POST   /api/credentials                      JSON 文本凭据（password / token / api_key / client_private_key_password）
@@ -150,7 +150,7 @@ DELETE /api/credentials/{secret_id}          任意 kind；仍被 datasource 引
 - 单文件上限 1 MiB（`CREDENTIAL_FILE_MAX_BYTES`），64 KiB 分块有界读取；超限 413 `credential_upload_too_large`。证书/私钥只在内存 buffer 中处理，**不落临时磁盘**。
 - client certificate + private key 在 **存储前** 完成 pair 校验；不匹配返回 `certificate_key_mismatch`，且不留任何已写入文件。两次写入按 all-or-nothing 处理，失败回滚。
 - 本卡 **不提供** `GET /api/credentials` 列表接口（Store 暂无产品级 enumeration contract）；不新增 CLI / MCP upload / Web UI / Login。
-- 未配置 `SMARTDATA_SECRET_STORE_DIR` / `SMARTDATA_MASTER_KEY` 时返回既有 `credential_store_configuration_error`，不自动生成 key、不回退明文。
+- 未配置 `QANERIS_SECRET_STORE_DIR` / `QANERIS_MASTER_KEY` 时返回既有 `credential_store_configuration_error`，不自动生成 key、不回退明文。
 
 ## 5. Web Roadshow Workspace(Web路演工作台)
 
@@ -171,7 +171,7 @@ RS-VIZ-01 已实现：`Typed Result → deterministic Chart Policy → controlle
 
 **Current state：EXCEL-01A Core Ingestion、EXCEL-01B Product CLI、EXCEL-01C Web Upload + Grounding → Query → Result Roadshow E2E 均已完成；RS-WEB-01 Unified Ask Workspace 已实现。**
 
-当前主仓库已经提供 `SmartDataService.import_excel()`，完成确定性 `.xlsx` 校验、Managed Artifact、policy-scoped immutable SQLite、幂等、SecureDatasourceCreate → DatabaseInitializer → ScanSnapshot → Neo4j publication；真实 Neo4j acceptance 49/49 PASS。EXCEL-01B 已经把同一入口暴露为产品命令 `smartdata source import-excel FILE [--name] [--workspace] [--json]`，CLI 只编排 Application Service，不复制 ingestion 规则。EXCEL-01C 增加了 `POST /api/datasources/import-excel`（浏览器 multipart，只提交字节，返回产品安全字段投影，不暴露 `sqlite_path` / `artifact_directory` / 临时路径）与 Web Excel Import Card + 最小 Ask 切片，并用真实 HTTP + 真实 Neo4j + 真实模型网关验收。Excel 仍然是 Ingestion Source(导入源)，不是第二套查询引擎：
+当前主仓库已经提供 `QanerisService.import_excel()`，完成确定性 `.xlsx` 校验、Managed Artifact、policy-scoped immutable SQLite、幂等、SecureDatasourceCreate → DatabaseInitializer → ScanSnapshot → Neo4j publication；真实 Neo4j acceptance 49/49 PASS。EXCEL-01B 已经把同一入口暴露为产品命令 `qaneris source import-excel FILE [--name] [--workspace] [--json]`，CLI 只编排 Application Service，不复制 ingestion 规则。EXCEL-01C 增加了 `POST /api/datasources/import-excel`（浏览器 multipart，只提交字节，返回产品安全字段投影，不暴露 `sqlite_path` / `artifact_directory` / 临时路径）与 Web Excel Import Card + 最小 Ask 切片，并用真实 HTTP + 真实 Neo4j + 真实模型网关验收。Excel 仍然是 Ingestion Source(导入源)，不是第二套查询引擎：
 
 ```text
 .xlsx Upload
@@ -193,36 +193,37 @@ RS-VIZ-01 已实现：`Typed Result → deterministic Chart Policy → controlle
 当前命令树（RS-CLI-01A + RS-CLI-01B + EXCEL-01B + RS-CLI-02 已完成）：
 
 ```text
-smartdata doctor [--json]
+qaneris doctor [--json]
 
-smartdata credential add --kind {password|token|api_key|client_private_key_password} [--stdin] [--json]
-smartdata credential show SECRET_ID [--json]
-smartdata credential delete SECRET_ID [--json]
+qaneris credential add --kind {password|token|api_key|client_private_key_password} [--stdin] [--json]
+qaneris credential show SECRET_ID [--json]
+qaneris credential delete SECRET_ID [--json]
 
-smartdata certificate add-ca FILE [--json]
-smartdata certificate add-client --certificate FILE --private-key FILE
+qaneris certificate add-ca FILE [--json]
+qaneris certificate add-client --certificate FILE --private-key FILE
                               [--private-key-password-prompt | --private-key-password-stdin] [--json]
-smartdata certificate inspect SECRET_ID [--json]
-smartdata certificate delete SECRET_ID [--json]
+qaneris certificate inspect SECRET_ID [--json]
+qaneris certificate delete SECRET_ID [--json]
 
-smartdata source list [--workspace WORKSPACE_ID] [--json]
-smartdata source show DATASOURCE_ID [--json]
-smartdata source scan-one DATASOURCE_ID [--json]
-smartdata source test-one --config CONFIG [--json]
-smartdata source create --config CONFIG [--json]
-smartdata source update DATASOURCE_ID --config CONFIG [--json]
-smartdata source delete DATASOURCE_ID [--json]
-smartdata source test --config CONFIG [--json]
-smartdata source scan --config CONFIG [--json]
-smartdata source import-excel FILE [--name NAME] [--workspace WORKSPACE_ID] [--json]
+qaneris source list [--workspace WORKSPACE_ID] [--json]
+qaneris source show DATASOURCE_ID [--json]
+qaneris source scan-one DATASOURCE_ID [--json]
+qaneris source test-one --config CONFIG [--json]
+qaneris source create --config CONFIG [--json]
+qaneris source update DATASOURCE_ID --config CONFIG [--json]
+qaneris source delete DATASOURCE_ID [--json]
+qaneris source test --config CONFIG [--json]
+qaneris source scan --config CONFIG [--json]
+qaneris source import-excel FILE [--name NAME] [--workspace WORKSPACE_ID] [--json]
 
-smartdata ask QUESTION [--workspace WORKSPACE_ID] [--datasource DATASOURCE_ID] [--max-rows N] [--stream] [--json]
+qaneris ask QUESTION [--workspace WORKSPACE_ID] [--datasource DATASOURCE_ID] [--max-rows N] [--stream] [--json]
 
-smartdata acceptance phase1 [--question-class A-F] [--repeat N] [--no-trace] [--json]
-smartdata acceptance ask --suite phase1 [...同上]
-```
+qaneris acceptance phase1 [--question-class A-F] [--repeat N] [--no-trace] [--json]
+qaneris acceptance ask --suite phase1 [...同上]
 
-CLI 是本地编排层：它只调用 `SmartDataService`，不改造成 HTTP Client(API客户端)，也不直接访问 Catalog / `ManagedCredentialStore` / `CertificateValidator` / SecretResolver / `TLSMaterializer` / Adapter / Neo4j。
+qaneris shell [--history FILE | --no-history] [--no-banner]
+
+CLI 是本地编排层：它只调用 `QanerisService`，不改造成 HTTP Client(API客户端)，也不直接访问 Catalog / `ManagedCredentialStore` / `CertificateValidator` / SecretResolver / `TLSMaterializer` / Adapter / Neo4j。
 
 ### 7.1 Secret Input Contract(Secret 输入契约，RS-CLI-02)
 
@@ -252,7 +253,7 @@ Secret 原文不得进入 argv / shell history / process list / JSON config / �
 
 `source test-one/create/update/delete` 与既有 `source list/show/scan-one` 一样是薄投影：CLI 不自行查询 Catalog，也不复述服务端拥有的顺序规则。
 
-`smartdata ask` 是一条非交互式命令：one command → one `AskRequest` → one `AskResponse`（同步）或一条 `AskEvent` 序列（`--stream`）；两条路径共用同一个 `AskRequest`，因此参数校验完全一致。CLI 只调用 `SmartDataService.ask()` / `SmartDataService.ask_stream()`，不触碰 intent/grounder/planner/compiler/executor/模型网关；`--datasource` 只接受 datasource id（不猜 name）；`--max-rows` 的合法范围由 `AskRequest` 契约校验。
+`qaneris ask` 是一条非交互式命令：one command → one `AskRequest` → one `AskResponse`（同步）或一条 `AskEvent` 序列（`--stream`）；两条路径共用同一个 `AskRequest`，因此参数校验完全一致。CLI 只调用 `QanerisService.ask()` / `QanerisService.ask_stream()`，不触碰 intent/grounder/planner/compiler/executor/模型网关；`--datasource` 只接受 datasource id（不猜 name）；`--max-rows` 的合法范围由 `AskRequest` 契约校验。
 
 四种 Ask 模式：
 
@@ -269,7 +270,21 @@ Secret 原文不得进入 argv / shell history / process list / JSON config / �
 
 CLI 只能编排 Application Service。JSON/JSONL 机器输出用于验收；不得成为新的 Source of Truth(事实来源)。`source import-excel` 的 human/JSON 输出、错误码与 exit code 契约见 `excel-ingestion.md` §16.1；`--json` 的 stdout 只允许单一 JSON document。
 
-`source list/show/scan-one` 同样是薄投影：`list` 与 `show` 只读，`scan-one` 调用 `SmartDataService.scan_datasource()` 后经 `inspect_datasource()` 报告新的 active snapshot version。三者都只发布公开字段（ID / Name / Kind / Driver / Status / Workspace，以及 Scan version / Last scan status / Dataset count），CLI 不自行查询 Catalog，也不接受 `--password` / `--token` 等交互式凭据录入。
+`source list/show/scan-one` 同样是薄投影：`list` 与 `show` 只读，`scan-one` 调用 `QanerisService.scan_datasource()` 后经 `inspect_datasource()` 报告新的 active snapshot version。三者都只发布公开字段（ID / Name / Kind / Driver / Status / Workspace，以及 Scan version / Last scan status / Dataset count），CLI 不自行查询 Catalog，也不接受 `--password` / `--token` 等交互式凭据录入。
+
+### 7.3 Interactive Session(交互式会话)
+
+`qaneris shell` 是前面所有命令的交互式外壳（inline TUI：横幅、常驻状态行由终端 UI 绘制，命令自身的输出留在终端原生 scrollback，不使用备用屏）。它**不新增任何产品行为**：
+
+- 每行经 shell 分词后交给与一次性命令完全相同的 `main()` 入口，因此输出、退出码与错误规则逐字一致；shell 不解析命令、不渲染命令专属结果、不接触 Application Service / Catalog / Adapter。
+- 会话内建词只有 `exit` / `quit` / `help` / `clear`，且仅在该词不是已注册命令时才生效，因此内建词永远不会遮蔽命令树中的同名命令。
+- `argparse` 用 `SystemExit` 表达 `--help` 与用法错误（退出码 0 / 2）；shell 把它转成该命令的退出码，**一次打错不会结束会话**。命令未预期的异常按类型上报，不显示任意消息（与一次性边界一致）。
+- 单条命令的退出码显示在状态行，**不作为会话进程的退出码**；会话正常结束时退出码为 0。Ctrl-C 取消当前输入行而不退出，Ctrl-D 退出。
+- 非终端 stdin 一律拒绝（退出码 2 并提示改用一次性命令），避免脚本隐式进入交互模式；缺少可选依赖时提示 `pip install -e '.[shell]'`，不输出 traceback。
+- **Secret 边界不变**：shell 不提供任何携带 secret 原文的选项。`credential add` / `certificate add-client` 的交互式输入仍走 `getpass`（直读控制终端），不经过 shell 的自绘输入行，因此**不会进入 readline 历史文件**。§7.1 的 Secret Input Contract 对交互式会话同样适用。
+- 命令历史写入 `.tools/shell_history`（目录 0700 / 文件 0600，`.tools/` 已被 Git 忽略），可用 `--no-history` 关闭；历史不可用时退回内存历史，不拒绝启动。
+- 会话进程会把 Neo4j driver 的 DBMS notification logger（`neo4j.notifications`）提升到 ERROR：这类记录描述的是服务器而非命令，在一次性报告中无害，但在会话里会横穿提示符。该设置仅作用于会话进程，API 与一次性命令行为不变。
+- 依赖 `prompt_toolkit` / `rich` 为**可选依赖**（`[shell]` extra，独立入口 `qaneris-shell`）；核心安装、API、MCP 与所有一次性命令不依赖它们。
 
 ## 8. MCP + Skill Contract(MCP与Skill契约)
 
@@ -278,13 +293,13 @@ CLI 只能编排 Application Service。JSON/JSONL 机器输出用于验收；不
 
 MCP 已有的 `ask_data` 等工具已完成 Roadshow 产品化（RS-MCP-01 DONE）。
 
-**依赖边界**：MCP interface 只调用 `SmartDataService` 公开方法。它不读 `Catalog`、不持有 model、不构造 `ManagedCredentialStore` / `SecretResolver` / `TLSMaterializer` / Adapter / Graph，也不调用模型 SDK。这些能力全部留在 Application Service 内部，MCP 只做参数整形、进度转换与错误转换。`tests/unit/interfaces/mcp/test_mcp_boundary.py` 会读取 server 源码做机械校验，新增 Tool 若越界会在测试中失败。
+**依赖边界**：MCP interface 只调用 `QanerisService` 公开方法。它不读 `Catalog`、不持有 model、不构造 `ManagedCredentialStore` / `SecretResolver` / `TLSMaterializer` / Adapter / Graph，也不调用模型 SDK。这些能力全部留在 Application Service 内部，MCP 只做参数整形、进度转换与错误转换。`tests/unit/interfaces/mcp/test_mcp_boundary.py` 会读取 server 源码做机械校验，新增 Tool 若越界会在测试中失败。
 
 **凭据边界**：MCP 只接收 `SecretReference`（`provider` + `identifier`），**不得接收 password、Token、Private Key 或 Certificate 原文**。不存在任何凭据创建 / 上传 Tool（无 `create_password` / `upload_certificate` / `upload_private_key` / `credential_add`）。Secret 必须先经 CLI 或 HTTP API 创建，MCP 再按引用消费。legacy `register_datasource(name, kind, driver, connection_json)` 已删除，不留第二条隐藏通道；`register_sqlite` 作为兼容便利工具保留，但内部构造 `SecureDatasourceCreate` 并走正式 Secure 契约。
 
 **Secure Datasource 输入**：`test/create/update` 接收结构化 `ConnectionProfile`（FastMCP 依据 Pydantic 契约生成嵌套 schema），不接收 `connection_json` 字符串。`test` 只测试、不保存 / 不 scan / 不写图；`create` 与 `update` 完成后都停在 `status=created`，scan 仍是唯一显式扫描入口；`delete` 只调用 `service.delete_datasource()`，图删除与 secret 回收仍属 Application Service。
 
-**Progress**：MCP Progress 消费 `SmartDataService.ask_stream()` 的统一 `AskEvent`，不建立第二套事件 schema。`ask_data` 是 async Tool，通过 AnyIO worker-thread bridge 驱动同步 generator，每个 `AskEvent` 触发一次 `ctx.report_progress(progress=float(event.sequence), message=event.event_type.value)`。**不传 `total`**（Ask 分支可能是 completed / clarification / error，事件总数事先不固定，不得伪造）；message 只含 `event_type.value`，不塞完整 payload。同一 Ask 只执行一次：终态响应取自 `result_ready` / `clarification_required` / `error` 事件，绝不二次调用 `service.ask()`。`clarification_required` 属正常产品结论（Tool `isError=false`）；`error` 保留稳定 SmartData code 并以 MCP Tool error 返回，未知异常只暴露 exception type。
+**Progress**：MCP Progress 消费 `QanerisService.ask_stream()` 的统一 `AskEvent`，不建立第二套事件 schema。`ask_data` 是 async Tool，通过 AnyIO worker-thread bridge 驱动同步 generator，每个 `AskEvent` 触发一次 `ctx.report_progress(progress=float(event.sequence), message=event.event_type.value)`。**不传 `total`**（Ask 分支可能是 completed / clarification / error，事件总数事先不固定，不得伪造）；message 只含 `event_type.value`，不塞完整 payload。同一 Ask 只执行一次：终态响应取自 `result_ready` / `clarification_required` / `error` 事件，绝不二次调用 `service.ask()`。`clarification_required` 属正常产品结论（Tool `isError=false`）；`error` 保留稳定 Qaneris code 并以 MCP Tool error 返回，未知异常只暴露 exception type。
 
 **Skill（RS-SKILL-01 DONE）**：Skill 只描述如何正确调用 MCP，不拥有第二套数据源选择、查询规划或安全规则。它把 Secure Datasource 固定为 `test_secure_datasource` → `create_secure_datasource` → `scan_datasource`（Update 为 `test` → `update` → `scan`），把 `created` 明确标注为不可问数状态，把 schema 工具定位为排歧诊断而非固定前置步骤，把 Progress 解释为执行阶段而不是思维链，并把 `clarification_required` 当作正常产品结论。回答事实来源固定为 `answer` / `result` / `evidence`。凭据侧与 MCP 同界：只传 `SecretReference`，不接收也不回显任何 secret 原文；用户没有引用时，引导其先经 CLI、HTTP API 或 Web 创建凭据。契约由 `tests/unit/skill/test_skill_contract.py` 守卫。
 
@@ -296,7 +311,7 @@ Credential / Certificate / Datasource 的详细设计只维护在 `connection-mo
 Secret Upload / Certificate Upload
 → opaque SecretReference
 → ConnectionProfile
-→ SmartDataService Secure Datasource Contract
+→ QanerisService Secure Datasource Contract
 → connection test
 → save / scan
 ```
@@ -305,7 +320,7 @@ Web 的正式 Datasource Wizard(数据源向导)固定为：Driver → Endpoint 
 
 ### 9.1 Web Secure HTTP Surface
 
-Web datasource API 由 `smartdata/interfaces/api/datasources.py` 注册，所有生命周期动作只转给同一个 `SmartDataService`：
+Web datasource API 由 `qaneris/interfaces/api/datasources.py` 注册，所有生命周期动作只转给同一个 `QanerisService`：
 
 | Method / Path | Service call / response |
 | --- | --- |
@@ -317,7 +332,7 @@ Web datasource API 由 `smartdata/interfaces/api/datasources.py` 注册，所有
 | `POST /api/datasources/{id}/scan` | 现有显式 scan 入口 |
 | `GET /api/tls-capabilities` | `list_tls_capabilities()`；只投影四种公开能力，唯一事实来源为 `TLS_DRIVER_MATRIX` |
 
-`GET /api/adapters` 同样经由 `SmartDataService.list_supported_adapters()`。legacy `POST /api/datasources` 保留兼容，React secure workflow 不调用它。Credential 与 CA / client identity 上传继续复用 RS-CRED-01B 的接口，无 Credential list endpoint。React production 使用 `web/frontend/dist/`；无 Login/Auth 的路演部署必须位于 controlled network / VPN / reverse proxy access control 之后。
+`GET /api/adapters` 同样经由 `QanerisService.list_supported_adapters()`。legacy `POST /api/datasources` 保留兼容，React secure workflow 不调用它。Credential 与 CA / client identity 上传继续复用 RS-CRED-01B 的接口，无 Credential list endpoint。React production 使用 `web/frontend/dist/`；无 Login/Auth 的路演部署必须位于 controlled network / VPN / reverse proxy access control 之后。
 
 ## 10. Non-goals Before Roadshow(路演前非目标)
 

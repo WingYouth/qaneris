@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from smartdata.catalog import Catalog
-from smartdata.contracts import DatasetInfo, DatasetSample, DatasourceCreate, FieldInfo
-from smartdata.querying.retrieval.schema_context import build_schema_context
+from qaneris.catalog import Catalog
+from qaneris.contracts import DatasetInfo, DatasetSample, DatasourceCreate, FieldInfo
+from qaneris.querying.retrieval.schema_context import build_schema_context
 
 
 def _source(catalog: Catalog, name: str):

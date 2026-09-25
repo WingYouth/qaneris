@@ -1,6 +1,6 @@
 import pytest
 
-from smartdata.profiling.documents.filesystem import safe_datasource_directory_name
+from qaneris.profiling.documents.filesystem import safe_datasource_directory_name
 
 
 @pytest.mark.parametrize(

@@ -51,14 +51,14 @@ Answer Composer(答案编排器)
 Codex(代码智能体) 开始修改前必须先阅读以下文件，不要只根据本卡猜代码：
 
 ```text
-smartdata/semantic/clarification.py
-smartdata/semantic/intent.py
-smartdata/semantic/grounding.py
-smartdata/application/service.py
-smartdata/llm/ports.py
-smartdata/llm/gateway.py
-smartdata/contracts/api.py
-smartdata/contracts/query.py
+qaneris/semantic/clarification.py
+qaneris/semantic/intent.py
+qaneris/semantic/grounding.py
+qaneris/application/service.py
+qaneris/llm/ports.py
+qaneris/llm/gateway.py
+qaneris/contracts/api.py
+qaneris/contracts/query.py
 
 tests/unit/semantic/test_intent_understanding.py
 tests/unit/semantic/test_grounding.py
@@ -106,7 +106,7 @@ IQ-01(可靠语义问数) 不重写这套机制。
 问题主要在于：
 
 - 无候选时只有 `unresolved_ambiguities(未解决歧义)` 文本；
-- `SmartDataService(智能数据服务)` 会把它统一包装成“请确认：...”；
+- `QanerisService(智能数据服务)` 会把它统一包装成“请确认：...”；
 - 完全没有 Binding(绑定) 时还会返回“请指定表、指标或字段”，把物理 Schema(模式) 认知负担推给用户。
 
 ### 2.3 正式 Ask(问数) 查询成功后仍只使用机械摘要
@@ -138,12 +138,12 @@ Codex(代码智能体) 必须把下面内容当作硬边界。
 允许修改：
 
 ```text
-smartdata/semantic/clarification.py
-smartdata/semantic/grounding.py
-smartdata/application/service.py
-smartdata/llm/ports.py
-smartdata/llm/gateway.py
-smartdata/answering/*              # 可以新增，推荐
+qaneris/semantic/clarification.py
+qaneris/semantic/grounding.py
+qaneris/application/service.py
+qaneris/llm/ports.py
+qaneris/llm/gateway.py
+qaneris/answering/*              # 可以新增，推荐
 相关 tests(测试)
 必要的 docs(文档)
 ```
@@ -197,7 +197,7 @@ BusinessQuery(业务查询)
 
 ### 4.1 Clarification Policy(澄清策略)：Confidence(置信度) 不再是阻断条件
 
-修改 `smartdata/semantic/clarification.py`。
+修改 `qaneris/semantic/clarification.py`。
 
 目标：
 
@@ -233,7 +233,7 @@ IntentUnderstandingResult.needs_clarification == False
 
 ### 4.2 Grounding Clarification(语义落地澄清)：从“泛化确认”改为“真实数据解释”
 
-修改 `smartdata/semantic/grounding.py` 和 `smartdata/application/service.py`。
+修改 `qaneris/semantic/grounding.py` 和 `qaneris/application/service.py`。
 
 原则：
 
@@ -306,14 +306,14 @@ Service
 
 ```text
 当前问题需要同时使用 A 和 B，但企业数据图中没有它们之间已确认的关系，
-因此 SmartData 当前不会按同名字段或 *_id 自动连接。
+因此 Qaneris 当前不会按同名字段或 *_id 自动连接。
 ```
 
 不要转换成泛化的“请补充问题范围”。
 
 #### E. Service Fallback(服务层兜底)
 
-`SmartDataService(智能数据服务)` 中这段：
+`QanerisService(智能数据服务)` 中这段：
 
 ```python
 question=f"请确认：{message}"
@@ -341,11 +341,11 @@ Service(服务) 层只负责投影 Grounding(语义落地) 已给出的结构化
 新增一个高内聚模块，推荐：
 
 ```text
-smartdata/answering/__init__.py
-smartdata/answering/composer.py
+qaneris/answering/__init__.py
+qaneris/answering/composer.py
 ```
 
-不要继续把 Answer(回答) 逻辑堆进 `SmartDataService(智能数据服务)`。
+不要继续把 Answer(回答) 逻辑堆进 `QanerisService(智能数据服务)`。
 
 建议最小接口：
 
@@ -494,13 +494,13 @@ Codex(代码智能体) 应优先按以下方式实施；如真实代码要求轻
 
 | 文件 | IQ-01(可靠语义问数) 职责 |
 | --- | --- |
-| `smartdata/semantic/clarification.py` | 删除 Low Confidence Gate(低置信度门)，只保留确定性 Intent Conflict(意图冲突) |
-| `smartdata/semantic/grounding.py` | 产生具体 Missing / Ambiguous / Relationship / Time-axis Clarification(缺失/歧义/关系/时间轴澄清) |
-| `smartdata/answering/composer.py` | 新增 Answer Composer(答案编排器)、敏感字段过滤、Number Guard(数字保护)、模型失败降级 |
-| `smartdata/answering/__init__.py` | 导出最小公共能力 |
-| `smartdata/application/service.py` | 编排 Composer(编排器)，删除泛化 Grounding Fallback(语义落地兜底)，记录 `analysis.answer_source` |
-| `smartdata/llm/ports.py` | 如需要，抽出最小 Answer Model Port(答案模型端口)；不要扩大基础设施依赖 |
-| `smartdata/llm/gateway.py` | 保持回答 Prompt(提示词) 只允许基于真实结果，不得补数字 |
+| `qaneris/semantic/clarification.py` | 删除 Low Confidence Gate(低置信度门)，只保留确定性 Intent Conflict(意图冲突) |
+| `qaneris/semantic/grounding.py` | 产生具体 Missing / Ambiguous / Relationship / Time-axis Clarification(缺失/歧义/关系/时间轴澄清) |
+| `qaneris/answering/composer.py` | 新增 Answer Composer(答案编排器)、敏感字段过滤、Number Guard(数字保护)、模型失败降级 |
+| `qaneris/answering/__init__.py` | 导出最小公共能力 |
+| `qaneris/application/service.py` | 编排 Composer(编排器)，删除泛化 Grounding Fallback(语义落地兜底)，记录 `analysis.answer_source` |
+| `qaneris/llm/ports.py` | 如需要，抽出最小 Answer Model Port(答案模型端口)；不要扩大基础设施依赖 |
+| `qaneris/llm/gateway.py` | 保持回答 Prompt(提示词) 只允许基于真实结果，不得补数字 |
 | tests(测试) | 更新旧低置信度断言并增加新验收 |
 
 不要把 `Grounding(语义落地)`、`Answer Composer(答案编排器)`、`Application Service(应用服务)` 三个职责混成一个新大类。
@@ -649,7 +649,7 @@ tests/unit/answering/test_composer.py
 修改：
 
 ```text
-smartdata/semantic/clarification.py
+qaneris/semantic/clarification.py
 tests/unit/semantic/test_intent_understanding.py
 ```
 
@@ -664,8 +664,8 @@ pytest -q tests/unit/semantic/test_intent_understanding.py
 修改：
 
 ```text
-smartdata/semantic/grounding.py
-smartdata/application/service.py
+qaneris/semantic/grounding.py
+qaneris/application/service.py
 tests/unit/semantic/test_grounding.py
 tests/unit/application/test_unified_ask.py
 tests/unit/application/test_ask_stream.py
@@ -675,7 +675,7 @@ tests/unit/application/test_ask_stream.py
 
 ### Step 3 — Add Answer Composer(增加答案编排器)
 
-新增 `smartdata/answering/`，然后在 `SmartDataService(智能数据服务)` 查询成功后调用。
+新增 `qaneris/answering/`，然后在 `QanerisService(智能数据服务)` 查询成功后调用。
 
 保持：
 

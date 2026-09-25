@@ -5,10 +5,10 @@ import json
 import os
 from typing import Any
 
-from smartdata.adapters.registry import create_adapter
-from smartdata.contracts import DatasourceKind
+from qaneris.adapters.registry import create_adapter
+from qaneris.contracts import DatasourceKind
 
-CONNECTION_ENV = "SMARTDATA_TEST_CONNECTION"
+CONNECTION_ENV = "QANERIS_TEST_CONNECTION"
 
 
 def verify_adapter(kind: str, driver: str, connection: dict[str, Any]) -> dict[str, Any]:
@@ -33,7 +33,7 @@ def verify_adapter(kind: str, driver: str, connection: dict[str, Any]) -> dict[s
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Verify one SmartData database adapter")
+    parser = argparse.ArgumentParser(description="Verify one Qaneris database adapter")
     parser.add_argument("--kind", required=True)
     parser.add_argument("--driver", required=True)
     args = parser.parse_args()

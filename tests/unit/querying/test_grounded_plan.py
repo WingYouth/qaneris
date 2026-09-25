@@ -27,8 +27,8 @@ from _grounded_fixtures import (
     sales_context,
 )
 
-from smartdata.common.errors import QueryContextBuildError, QueryPlanningError
-from smartdata.contracts.query import (
+from qaneris.common.errors import QueryContextBuildError, QueryPlanningError
+from qaneris.contracts.query import (
     AggregateFunction,
     FilterOperator,
     GroundedDataObjectRef,
@@ -46,14 +46,14 @@ from smartdata.contracts.query import (
     TimeRange,
     TimeSpec,
 )
-from smartdata.contracts.semantic import (
+from qaneris.contracts.semantic import (
     BusinessFilter,
     BusinessQuery,
     DerivationSpec,
     RankingSpec,
     SemanticAssetType,
 )
-from smartdata.querying import GroundedPlanValidator, GroundedQueryPlanner, QueryContextBuilder
+from qaneris.querying import GroundedPlanValidator, GroundedQueryPlanner, QueryContextBuilder
 
 REGION = GroundedFieldRef(
     datasource_id=DS, data_object_id=ORDERS, field_path="region", field_id=ORDERS_REGION

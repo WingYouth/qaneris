@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.contracts import BusinessQuery, DatasourceCreate, SemanticAssetType
-from smartdata.semantic import (
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.contracts import BusinessQuery, DatasourceCreate, SemanticAssetType
+from qaneris.semantic import (
     MetadataLexicalSemanticRetriever,
     SemanticAsset,
     SemanticAssetBootstrap,
@@ -31,7 +31,7 @@ def scanned_profile(tmp_path):
             """
         )
     catalog_path = tmp_path / "catalog.db"
-    service = SmartDataService(Catalog(catalog_path))
+    service = QanerisService(Catalog(catalog_path))
     datasource = service.create_datasource(
         DatasourceCreate(
             name="sales",

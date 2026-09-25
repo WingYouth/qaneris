@@ -45,19 +45,19 @@ BusinessQuery(业务查询)
 Codex(代码智能体) 开始前必须重新阅读真实代码，至少：
 
 ```text
-smartdata/contracts/query.py
-smartdata/application/service.py
-smartdata/querying/generation/grounded_sql.py
-smartdata/querying/generation/generator.py
-smartdata/querying/execution.py
-smartdata/querying/validation/native.py
-smartdata/querying/validation/read_only.py
-smartdata/adapters/base.py
-smartdata/adapters/relational/sqlite.py
-smartdata/adapters/relational/sqlalchemy.py
-smartdata/adapters/document/mongodb.py
-smartdata/adapters/key_value/redis.py
-smartdata/adapters/registry.py
+qaneris/contracts/query.py
+qaneris/application/service.py
+qaneris/querying/generation/grounded_sql.py
+qaneris/querying/generation/generator.py
+qaneris/querying/execution.py
+qaneris/querying/validation/native.py
+qaneris/querying/validation/read_only.py
+qaneris/adapters/base.py
+qaneris/adapters/relational/sqlite.py
+qaneris/adapters/relational/sqlalchemy.py
+qaneris/adapters/document/mongodb.py
+qaneris/adapters/key_value/redis.py
+qaneris/adapters/registry.py
 docs/test-database-environment.md
 ```
 
@@ -81,16 +81,16 @@ docs/test-database-environment.md
 允许新增/修改：
 
 ```text
-smartdata/contracts/query.py
-smartdata/querying/generation/*
-smartdata/querying/validation/*
-smartdata/querying/execution.py
-smartdata/adapters/base.py
-smartdata/adapters/relational/sqlite.py
-smartdata/adapters/relational/sqlalchemy.py
-smartdata/adapters/document/mongodb.py
-smartdata/adapters/key_value/redis.py
-smartdata/application/service.py
+qaneris/contracts/query.py
+qaneris/querying/generation/*
+qaneris/querying/validation/*
+qaneris/querying/execution.py
+qaneris/adapters/base.py
+qaneris/adapters/relational/sqlite.py
+qaneris/adapters/relational/sqlalchemy.py
+qaneris/adapters/document/mongodb.py
+qaneris/adapters/key_value/redis.py
+qaneris/application/service.py
 相关 tests(测试)
 必要 docs(文档)
 ```
@@ -98,9 +98,9 @@ smartdata/application/service.py
 推荐新增：
 
 ```text
-smartdata/querying/generation/native.py
-smartdata/querying/generation/grounded_mongo.py
-smartdata/querying/generation/grounded_redis.py
+qaneris/querying/generation/native.py
+qaneris/querying/generation/grounded_mongo.py
+qaneris/querying/generation/grounded_redis.py
 ```
 
 ### 3.2 本卡禁止

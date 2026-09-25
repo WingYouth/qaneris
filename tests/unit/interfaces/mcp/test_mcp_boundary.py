@@ -21,9 +21,9 @@ from pathlib import Path
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session as connected_session
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.interfaces.mcp import server
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.interfaces.mcp import server
 
 SERVER_SOURCE = Path(server.__file__)
 
@@ -62,9 +62,9 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture
-def isolated_service(tmp_path, monkeypatch) -> SmartDataService:
+def isolated_service(tmp_path, monkeypatch) -> QanerisService:
     """A real service on a throwaway catalog, so protocol tests touch no shared state."""
-    instance = SmartDataService(Catalog(tmp_path / "catalog.db"))
+    instance = QanerisService(Catalog(tmp_path / "catalog.db"))
     monkeypatch.setattr(server, "service", instance)
     return instance
 
@@ -210,12 +210,12 @@ def test_server_imports_no_infrastructure_module() -> None:
             imported.update(alias.name for alias in node.names)
 
     allowed_prefixes = (
-        "smartdata.application",
-        "smartdata.contracts",
-        "smartdata.common",
+        "qaneris.application",
+        "qaneris.contracts",
+        "qaneris.common",
     )
-    smartdata_imports = {name for name in imported if name.startswith("smartdata")}
-    for name in smartdata_imports:
+    qaneris_imports = {name for name in imported if name.startswith("qaneris")}
+    for name in qaneris_imports:
         assert name.startswith(allowed_prefixes), f"MCP imports a non-boundary module: {name}"
 
 

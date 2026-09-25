@@ -22,11 +22,11 @@ from typing import Any
 
 import pytest
 
-from smartdata.common.errors import (
+from qaneris.common.errors import (
     TLSFeatureUnsupportedError,
     TLSMaterializationError,
 )
-from smartdata.connections.tls_materializer import TLSMaterializer
+from qaneris.connections.tls_materializer import TLSMaterializer
 from tests.unit._tls_helpers import (
     CA_MARKER,
     CLIENT_CERT_MARKER,
@@ -73,13 +73,13 @@ def _material_directory(parameters: dict[str, Any]) -> Path | None:
 
 def test_tls_disabled_yields_nothing_and_creates_no_directory() -> None:
     """A non-TLS connection must not gain a temp directory because this module exists."""
-    before = set(Path(tempfile.gettempdir()).glob("smartdata-tls-*"))
+    before = set(Path(tempfile.gettempdir()).glob("qaneris-tls-*"))
 
     with materializer().materialize(resolved("postgresql", tls_enabled=False)) as parameters:
         assert parameters == {}
-        assert set(Path(tempfile.gettempdir()).glob("smartdata-tls-*")) == before
+        assert set(Path(tempfile.gettempdir()).glob("qaneris-tls-*")) == before
 
-    assert set(Path(tempfile.gettempdir()).glob("smartdata-tls-*")) == before
+    assert set(Path(tempfile.gettempdir()).glob("qaneris-tls-*")) == before
 
 
 # ----------------------------------------------------------------------------------------------
@@ -275,7 +275,7 @@ def test_files_are_written_inside_a_private_directory() -> None:
 
     with materializer().materialize(resolved("postgresql", ca=pem(certificate))) as parameters:
         directory = Path(parameters["connect_args"]["sslrootcert"]).parent
-        assert directory.name.startswith("smartdata-tls-")
+        assert directory.name.startswith("qaneris-tls-")
         assert directory.stat().st_mode & 0o777 == 0o700
         for child in directory.iterdir():
             assert child.stat().st_mode & 0o777 == 0o600

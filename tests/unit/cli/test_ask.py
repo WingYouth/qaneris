@@ -1,6 +1,6 @@
-"""CLI contract tests for ``smartdata ask`` (RS-CLI-01A).
+"""CLI contract tests for ``qaneris ask`` (RS-CLI-01A).
 
-These lock the interface contract only: argument wiring, the single ``SmartDataService.ask()``
+These lock the interface contract only: argument wiring, the single ``QanerisService.ask()``
 call, the human and JSON output shapes per Ask status, exit codes, stdout/stderr isolation and
 the absence of private model output. The Ask pipeline itself - intent, retrieval, grounding,
 planning, validation and execution - is covered by the Core suites and is deliberately not
@@ -17,19 +17,19 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from smartdata.application.service import SmartDataService
-from smartdata.cli import ask as ask_cli
-from smartdata.cli import main as cli
-from smartdata.cli import source
-from smartdata.common.errors import DatasourceNotFoundError
-from smartdata.contracts.api import (
+from qaneris.application.service import QanerisService
+from qaneris.cli import ask as ask_cli
+from qaneris.cli import main as cli
+from qaneris.cli import source
+from qaneris.common.errors import DatasourceNotFoundError
+from qaneris.contracts.api import (
     AskClarification,
     AskRequest,
     AskResponse,
     AskStatus,
     ErrorDetail,
 )
-from smartdata.contracts.query import (
+from qaneris.contracts.query import (
     AggregateFunction,
     ExecutionEvidence,
     GroundedDataObjectRef,
@@ -147,19 +147,19 @@ def failed_response() -> AskResponse:
 
 def installed(monkeypatch: pytest.MonkeyPatch, service: Any) -> Mock:
     constructor = Mock(return_value=service)
-    monkeypatch.setattr(source, "SmartDataService", constructor)
+    monkeypatch.setattr(source, "QanerisService", constructor)
     return constructor
 
 
 def serving(monkeypatch: pytest.MonkeyPatch, response: AskResponse) -> Mock:
     ask = Mock(return_value=response)
-    installed(monkeypatch, Mock(spec=SmartDataService, ask=ask))
+    installed(monkeypatch, Mock(spec=QanerisService, ask=ask))
     return ask
 
 
 def failing(monkeypatch: pytest.MonkeyPatch, error: Exception) -> Mock:
     ask = Mock(side_effect=error)
-    installed(monkeypatch, Mock(spec=SmartDataService, ask=ask))
+    installed(monkeypatch, Mock(spec=QanerisService, ask=ask))
     return ask
 
 
@@ -298,7 +298,7 @@ def test_json_output_survives_incidental_pipeline_stdout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     ask = Mock(side_effect=lambda request: print("driver warning noise") or completed_response())
-    installed(monkeypatch, Mock(spec=SmartDataService, ask=ask))
+    installed(monkeypatch, Mock(spec=QanerisService, ask=ask))
     code, stdout, stderr = run(monkeypatch, command("--json"))
     assert code == 0
     assert json.loads(stdout)["status"] == "completed"
@@ -393,7 +393,7 @@ def test_unexpected_exception_exposes_only_the_type(monkeypatch: pytest.MonkeyPa
     ],
 )
 def test_usage_errors_exit_two(arguments: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
-    installed(monkeypatch, Mock(spec=SmartDataService))
+    installed(monkeypatch, Mock(spec=QanerisService))
     code, _, _ = run(monkeypatch, arguments)
     assert code == 2
 

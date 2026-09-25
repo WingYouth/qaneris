@@ -32,7 +32,7 @@
           "username": "admin",
           "password": {
             "provider": "environment",
-            "identifier": "SMARTDATA_COUCHDB_PASSWORD"
+            "identifier": "QANERIS_COUCHDB_PASSWORD"
           }
         }
       }

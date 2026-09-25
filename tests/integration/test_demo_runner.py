@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from examples.run_demo import prepare_demo
-from smartdata.catalog import Catalog
+from qaneris.catalog import Catalog
 
 
 def test_prepare_demo_is_idempotent(tmp_path: Path) -> None:

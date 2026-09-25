@@ -15,7 +15,7 @@
           "username": "readonly",
           "password": {
             "provider": "environment",
-            "identifier": "SMARTDATA_CLICKHOUSE_PASSWORD"
+            "identifier": "QANERIS_CLICKHOUSE_PASSWORD"
           }
         }
       }

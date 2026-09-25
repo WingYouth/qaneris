@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from smartdata.adapters.relational.sqlite import SQLiteAdapter
-from smartdata.contracts import (
+from qaneris.adapters.relational.sqlite import SQLiteAdapter
+from qaneris.contracts import (
     AggregateFunction,
     FilterOperator,
     GroundedDataObjectRef,
@@ -18,8 +18,8 @@ from smartdata.contracts import (
     SortDirection,
     TimeRange,
 )
-from smartdata.querying.generation import GroundedSQLCompiler
-from smartdata.querying.validation import GroundedNativeQueryValidator
+from qaneris.querying.generation import GroundedSQLCompiler
+from qaneris.querying.validation import GroundedNativeQueryValidator
 
 
 def ref(object_id: str, name: str) -> GroundedFieldRef:

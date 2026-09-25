@@ -8,10 +8,10 @@ from typing import Any
 import pytest
 
 from examples.create_demo_database import create_demo_database
-from smartdata.adapters.relational.sqlite import SQLiteAdapter
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.contracts import AskRequest, DatasourceCreate
+from qaneris.adapters.relational.sqlite import SQLiteAdapter
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.contracts import AskRequest, DatasourceCreate
 
 EXAMPLES_DIR = Path(__file__).parents[2] / "examples"
 QUESTION_CONTRACT = EXAMPLES_DIR / "questions_2026_07.json"
@@ -96,7 +96,7 @@ def test_sqlite_adapter_scans_demo_database(demo_database: Path) -> None:
 def test_current_verification_sql_contract_runs_through_service(
     demo_database: Path, tmp_path: Path
 ) -> None:
-    service = SmartDataService(Catalog(tmp_path / "catalog.db"))
+    service = QanerisService(Catalog(tmp_path / "catalog.db"))
     datasource = service.create_datasource(
         DatasourceCreate(
             name="sales_2026_07",

@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from smartdata.contracts import (
+from qaneris.contracts import (
     BusinessQuery,
     CompanyDataProfile,
     DataObjectProfile,
@@ -15,7 +15,7 @@ from smartdata.contracts import (
     SemanticAssetType,
     SemanticMetadata,
 )
-from smartdata.semantic import MetadataLexicalSemanticRetriever, SemanticRetriever
+from qaneris.semantic import MetadataLexicalSemanticRetriever, SemanticRetriever
 
 
 def semantic(

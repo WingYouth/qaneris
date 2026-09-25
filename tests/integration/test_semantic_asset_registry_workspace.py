@@ -8,14 +8,14 @@ from datetime import UTC, datetime
 
 import pytest
 
-from smartdata.contracts import (
+from qaneris.contracts import (
     CompanyDataProfile,
     DataObjectProfile,
     DataSourceProfile,
     FieldProfile,
     NamespaceProfile,
 )
-from smartdata.semantic import (
+from qaneris.semantic import (
     SemanticAsset,
     SemanticAssetBootstrap,
     SemanticAssetSeed,

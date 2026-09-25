@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from smartdata.interfaces.mcp import server
+from qaneris.interfaces.mcp import server
 
 SKILL_DIR = Path(server.__file__).resolve().parents[3] / "skill"
 SKILL_PATH = SKILL_DIR / "SKILL.md"
@@ -98,7 +98,7 @@ def test_skill_artifacts_exist() -> None:
 
 def test_frontmatter_keeps_the_registered_skill_name(skill_text: str) -> None:
     assert skill_text.startswith("---\n")
-    assert "name: smartdata-analytics" in skill_text
+    assert "name: qaneris-analytics" in skill_text
 
 
 # -- required product concepts ----------------------------------------------------------------
@@ -157,7 +157,7 @@ def test_skill_reports_progress_as_execution_status(skill_text: str) -> None:
 
 
 def test_skill_routes_missing_credentials_to_a_safe_product_entry(skill_text: str) -> None:
-    assert "SmartData CLI" in skill_text
+    assert "Qaneris CLI" in skill_text
     assert "HTTP API" in skill_text
     assert "SecretReference" in skill_text
 

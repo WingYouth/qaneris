@@ -1,1 +1,1 @@
-"""Operator tooling that is not part of the shipped ``smartdata`` package."""
+"""Operator tooling that is not part of the shipped ``qaneris`` package."""

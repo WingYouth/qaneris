@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 
-from smartdata.common.errors import IntentParsingError
-from smartdata.contracts import BusinessQuery, ComparisonSpec, RankingSpec
-from smartdata.semantic import (
+from qaneris.common.errors import IntentParsingError
+from qaneris.contracts import BusinessQuery, ComparisonSpec, RankingSpec
+from qaneris.semantic import (
     BusinessQueryMergePolicy,
     IntentUnderstandingPipeline,
     LLMBusinessParser,

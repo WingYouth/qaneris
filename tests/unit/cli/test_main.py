@@ -8,19 +8,19 @@ from unittest.mock import Mock
 
 import pytest
 
-from smartdata.acceptance.phase1 import (
+from qaneris.acceptance.phase1 import (
     PHASE1_SCENARIOS,
     Phase1AcceptanceRunner,
     Phase1RunReport,
     ScenarioResult,
 )
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.cli import main as cli
-from smartdata.contracts import BusinessQuery
-from smartdata.graph.ports import NullGraphReader, NullGraphStore
-from smartdata.scripts.acceptance import phase1_e2e
-from smartdata.semantic.models import SemanticRetrievalResult
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.cli import main as cli
+from qaneris.contracts import BusinessQuery
+from qaneris.graph.ports import NullGraphReader, NullGraphStore
+from qaneris.scripts.acceptance import phase1_e2e
+from qaneris.semantic.models import SemanticRetrievalResult
 
 
 def report(tmp_path: Path, *, status: str = "passed") -> Phase1RunReport:
@@ -138,9 +138,9 @@ def test_doctor_json_contains_statuses_only(capsys, monkeypatch) -> None:
 
 def test_missing_model_creates_blocked_artifacts(tmp_path, monkeypatch) -> None:
     for key in list(sys.modules["os"].environ):
-        if key.startswith("SMARTDATA_MODEL_"):
+        if key.startswith("QANERIS_MODEL_"):
             monkeypatch.delenv(key, raising=False)
-    runner = Phase1AcceptanceRunner(artifact_base=tmp_path / "SmartDataArtifacts")
+    runner = Phase1AcceptanceRunner(artifact_base=tmp_path / "QanerisArtifacts")
 
     actual = runner.run(question_class="A", repeat=3, trace=False)
 
@@ -159,8 +159,8 @@ def test_missing_model_creates_blocked_artifacts(tmp_path, monkeypatch) -> None:
 
 def test_runner_redacts_secrets_from_reports(tmp_path, monkeypatch) -> None:
     secret = "unit-super-secret"
-    monkeypatch.setenv("SMARTDATA_MODEL_API_KEY", secret)
-    runner = Phase1AcceptanceRunner(artifact_base=tmp_path / "SmartDataArtifacts")
+    monkeypatch.setenv("QANERIS_MODEL_API_KEY", secret)
+    runner = Phase1AcceptanceRunner(artifact_base=tmp_path / "QanerisArtifacts")
     monkeypatch.setattr(
         runner,
         "_prepare",
@@ -217,8 +217,8 @@ class _IntentModel:
         raise AssertionError("model must not answer")
 
 
-def test_cli_runner_calls_real_smartdata_service_ask(tmp_path, capsys, monkeypatch) -> None:
-    service = SmartDataService(
+def test_cli_runner_calls_real_qaneris_service_ask(tmp_path, capsys, monkeypatch) -> None:
+    service = QanerisService(
         Catalog(tmp_path / "catalog.db"),
         model=_IntentModel(),
         graph_store=NullGraphStore(),
@@ -236,7 +236,7 @@ def test_cli_runner_calls_real_smartdata_service_ask(tmp_path, capsys, monkeypat
     )
     ask = Mock(wraps=service.ask)
     service.ask = ask
-    runner = Phase1AcceptanceRunner(artifact_base=tmp_path / "SmartDataArtifacts")
+    runner = Phase1AcceptanceRunner(artifact_base=tmp_path / "QanerisArtifacts")
     monkeypatch.setattr(runner, "_prepare", lambda run_directory, report: (service, "ds-test"))
     monkeypatch.setattr(cli, "Phase1AcceptanceRunner", lambda: runner)
 

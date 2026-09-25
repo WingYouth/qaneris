@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-from smartdata.contracts.connection import (
+from qaneris.contracts.connection import (
     ConnectionEndpoint,
     ConnectionProfile,
     DeploymentMode,
@@ -48,7 +48,7 @@ def certificate(
     issuer_key = key or private_key()
     now = dt.datetime.now(dt.UTC)
     name = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, "SmartData Test CA" if ca else "client")]
+        [x509.NameAttribute(NameOID.COMMON_NAME, "Qaneris Test CA" if ca else "client")]
     )
     builder = (
         x509.CertificateBuilder()

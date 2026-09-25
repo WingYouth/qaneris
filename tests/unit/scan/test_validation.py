@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from smartdata.scan import (
+from qaneris.scan import (
     ScanEdgeType,
     ScanGraph,
     ScanGraphEdge,

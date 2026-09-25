@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from smartdata.cli import scan
-from smartdata.contracts import (
+from qaneris.cli import scan
+from qaneris.contracts import (
     ConnectionTestReport,
     ConnectionTestResult,
     ScanRunInfo,
@@ -110,7 +110,7 @@ def test_top_level_failure_redacts_secret(tmp_path, capsys, monkeypatch) -> None
     create_sqlite_source(source)
     config = tmp_path / "datasource.json"
     config.write_text(json.dumps(sqlite_config(source)), encoding="utf-8")
-    monkeypatch.setenv("SMARTDATA_NEO4J_PASSWORD", "never-print-this")
+    monkeypatch.setenv("QANERIS_NEO4J_PASSWORD", "never-print-this")
     monkeypatch.setattr(
         scan,
         "MultiDatabaseScanRunner",

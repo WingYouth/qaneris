@@ -1,11 +1,11 @@
-# SmartData Roadshow Overview(路演总览)
+# Qaneris Roadshow Overview(路演总览)
 
-**SmartData source baseline：main @ d39cc71f320aad2d41db72d9d1abcd49a5b275f0**  
+**Qaneris source baseline：main @ d39cc71f320aad2d41db72d9d1abcd49a5b275f0**  
 **Test-data baseline：JingJIang96200/NLQuery-Test-Dataset @ cb1c520dbc150412e271049cd45298a99c5d8a16**
 
 ## 1. One Sentence(一句话)
 
-SmartData 是面向企业数据的可信 AI 问数系统：让模型理解业务问题，让受治理语义、Neo4j 企业数据图和校验链决定真实数据库事实，再以只读方式执行并返回可追溯结果。
+Qaneris 是面向企业数据的可信 AI 问数系统：让模型理解业务问题，让受治理语义、Neo4j 企业数据图和校验链决定真实数据库事实，再以只读方式执行并返回可追溯结果。
 
 ```text
 Question
@@ -20,12 +20,12 @@ Question
 
 ## 2. What Is Already Real(已经真实完成的部分)
 
-- `SmartDataService.ask()` 的 Phase 1 可信查询主链已完成。
+- `QanerisService.ask()` 的 Phase 1 可信查询主链已完成。
 - Scan → Neo4j Enterprise Data Graph 已完成；关系只接受数据库/配置确认的真实关系，不根据同名字段猜测。
 - 固定真实 LLM + Neo4j + SQLite 验收集曾完成六类问题 × 3 次，共 18/18 符合预期。这个数字只代表该固定验收集，不代表系统总体准确率 100%。
 - Adapter Registry 当前注册 21 个 driver；它代表代码入口，不代表 21 个真实数据库都做过问数 E2E。
 - API `POST /api/ask` 与 MCP `ask_data` 已存在。
-- CLI 已有 doctor、Phase 1 acceptance、source test/scan、source import-excel，以及非交互式 `smartdata ask`（human/JSON，RS-CLI-01A）。
+- CLI 已有 doctor、Phase 1 acceptance、source test/scan、source import-excel，以及非交互式 `qaneris ask`（human/JSON，RS-CLI-01A）。
 - React/Vite Web Foundation 已存在，但还不是完整 Ask 产品。
 
 ## 3. Roadshow Release Must Add(路演前必须补齐)
@@ -36,7 +36,7 @@ Roadshow 目标不是继续堆内部模块，而是把核心引擎包装成可�
 - 统一 Streaming / Progress(流式进度)契约。
 - Web 展示结构化 Execution Trace、QueryPlan、SQL/Native Query Evidence、Result Table 和 Visualization。
 - Excel `.xlsx` 完成 Upload → SQLite → Scan → Neo4j → Ask 全链路。
-- `NLQuery-Test-Dataset` 的 16 个服务型数据库部署到路演服务器并由 SmartData 做真实 connection + scan 验收。
+- `NLQuery-Test-Dataset` 的 16 个服务型数据库部署到路演服务器并由 Qaneris 做真实 connection + scan 验收。
 - 16 个服务型库中的 14 个完成 SSL/TLS 真实连接；用户证书必须有上传、验证、受管保存、运行时物化、轮换和删除能力。
 - 固定 Roadshow Dataset / Questions / Acceptance Script，并录制演示视频。
 
@@ -70,6 +70,6 @@ Connect a real database OR upload Excel
 
 ## 6. External Wording(对外口径)
 
-可以说：SmartData 已完成可信自然语言问数核心闭环；固定真实 Phase 1 E2E 集 18/18；测试仓库已经准备 16 个服务型数据库和一个容器化 SQLite；Roadshow Release 正在把这些能力产品化为 Web / CLI / Skill / MCP，并补齐 Excel、TLS、Streaming、Trace 与 Visualization。
+可以说：Qaneris 已完成可信自然语言问数核心闭环；固定真实 Phase 1 E2E 集 18/18；测试仓库已经准备 16 个服务型数据库和一个容器化 SQLite；Roadshow Release 正在把这些能力产品化为 Web / CLI / Skill / MCP，并补齐 Excel、TLS、Streaming、Trace 与 Visualization。
 
 不要说：总体准确率 100%；21 种数据库全部真实问数验收通过；16 个测试库已经部署到服务器；14 个 SSL 已完成；Excel/Web Streaming/Visualization 已经完成——除非 Roadmap 和真实验收产物之后明确更新为 DONE。

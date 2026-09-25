@@ -1,4 +1,4 @@
-from smartdata.adapters.native_values import normalize_sample_row
+from qaneris.adapters.native_values import normalize_sample_row
 
 
 def test_sample_values_redact_sensitive_fields_and_binary_values() -> None:

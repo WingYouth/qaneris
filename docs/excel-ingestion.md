@@ -2,7 +2,7 @@
 
 **Work Package：RS-EXCEL-01 Excel End-to-End**  
 **Status：EXCEL-01A CORE DONE / EXCEL-01B PRODUCT CLI DONE / EXCEL-01C WEB UPLOAD + ROADSHOW E2E DONE / RS-EXCEL-01 DONE — Core Ingestion、Product CLI、HTTP Upload 边界与 Web Upload + Grounding → Query → Result 路演链路均已实现并通过真实 Neo4j + 真实模型网关 acceptance**  
-**Authority：不得突破 `SmartData_Next_Generation_Architecture_and_Implementation_Plan_v1.0.md`、`development-roadmap.md`、`product-interfaces.md` 的信任边界。**
+**Authority：不得突破 `Qaneris_Next_Generation_Architecture_and_Implementation_Plan_v1.0.md`、`development-roadmap.md`、`product-interfaces.md` 的信任边界。**
 
 ## 1. Goal(目标)
 
@@ -23,7 +23,7 @@ Roadshow 正式链路固定为：
 → Result
 ```
 
-第一版只接受结构化、表格型 `.xlsx`。Excel 导入层只负责把文件稳定、可重复地转换成 SQLite；从 SQLite 开始全部复用 SmartData 已有可信主链。
+第一版只接受结构化、表格型 `.xlsx`。Excel 导入层只负责把文件稳定、可重复地转换成 SQLite；从 SQLite 开始全部复用 Qaneris 已有可信主链。
 
 ## 2. Trust Boundary(信任边界)
 
@@ -47,7 +47,7 @@ Roadshow 正式链路固定为：
 - 确定性 Validation、Type Inference、SQLite Materialization。
 - Managed Artifact、SHA-256、幂等导入。
 - 复用现有 Scan → Neo4j → Ask 主链。
-- CLI `smartdata source import-excel`。
+- CLI `qaneris source import-excel`。
 - HTTP `POST /api/datasources/import-excel` multipart 上传与 Web Excel Upload 卡片。
 - 后续 Web/API/MCP 只编排同一个 Application Service。
 
@@ -91,7 +91,7 @@ ExcelImportResult
 Application Service 对外只暴露一个入口，例如：
 
 ```python
-SmartDataService.import_excel(...)
+QanerisService.import_excel(...)
 ```
 
 内部可以委托 `ExcelIngestionService`，但接口层不得直接调用 parser / materializer。
@@ -283,7 +283,7 @@ relationships = 0
 统一复用：
 
 ```python
-smartdata.common.artifacts.artifact_root()
+qaneris.common.artifacts.artifact_root()
 ```
 
 Excel artifact 不得落在 Git repository 内。
@@ -291,7 +291,7 @@ Excel artifact 不得落在 Git repository 内。
 建议目录：
 
 ```text
-SmartDataArtifacts/
+QanerisArtifacts/
 └── ingestion/
     └── excel/
         └── <workspace_digest>/
@@ -404,7 +404,7 @@ workspace_id + exact file SHA-256 + policy_version
 
 v1 不提供 `force_new` 绕过幂等。
 
-## 14. Integration with Existing SmartData Chain(接入现有主链)
+## 14. Integration with Existing Qaneris Chain(接入现有主链)
 
 Materialization READY 后构造现有安全连接：
 
@@ -419,7 +419,7 @@ SecureDatasourceCreate
 然后只调用现有 Application / Initialization path：
 
 ```text
-SmartDataService.create_secure_datasource()
+QanerisService.create_secure_datasource()
 → SQLiteAdapter.test_connection()
 → DatabaseInitializer.initialize()
 → scan_metadata / scan_relations / samples
@@ -445,7 +445,7 @@ artifact READY
 
 datasource / scan / Neo4j publication 任一阶段失败，都必须留下 `manifest.status = FAILED`，错误码取 `EXCEL_DATASOURCE_CREATION_FAILED` 或 `EXCEL_SCAN_FAILED`；不得伪造 `datasource_id` / `snapshot_id`，也不得回显业务 cell value。
 
-Roadshow 最终 E2E 还必须继续通过现有 `SmartDataService.ask()` 得到 Result。
+Roadshow 最终 E2E 还必须继续通过现有 `QanerisService.ask()` 得到 Result。
 
 ## 15. Error Model(错误模型)
 
@@ -477,7 +477,7 @@ EXCEL_SCAN_FAILED
 ## 16. Proposed Code Boundary(建议代码边界)
 
 ```text
-smartdata/
+qaneris/
 ├── ingestion/
 │   └── excel/
 │       ├── __init__.py
@@ -506,7 +506,7 @@ smartdata/
 - `validator.py`：文件、Workbook、Sheet、Header、Formula、limits。
 - `types.py`：纯确定性的 type inference / widening。
 - `materializer.py`：只负责写 staging SQLite 与 integrity check。
-- `service.py`：managed artifact + idempotency + 调用现有 SmartDataService datasource/scan 路径。
+- `service.py`：managed artifact + idempotency + 调用现有 QanerisService datasource/scan 路径。
 - `interfaces/api/excel.py`：只做 HTTP 边界三件事——临时 staging、读取时的大小保护、产品安全投影；不复制任何 ingestion 规则。
 - Interface 层不得复制以上规则。
 
@@ -515,7 +515,7 @@ smartdata/
 正式命令：
 
 ```text
-smartdata source import-excel FILE [--name NAME] [--workspace WORKSPACE_ID] [--json]
+qaneris source import-excel FILE [--name NAME] [--workspace WORKSPACE_ID] [--json]
 ```
 
 | Parameter | 含义 |
@@ -526,7 +526,7 @@ smartdata source import-excel FILE [--name NAME] [--workspace WORKSPACE_ID] [--j
 | `--json` | 输出纯机器可解析 JSON |
 | `--env-file` | 复用既有全局选项，不新增 dotenv 机制 |
 
-CLI 只负责 `argument registration → ExcelImportRequest → SmartDataService.import_excel()` 与输出格式化。禁止新增 `--force`、`--skip-validation`、`--no-scan`、`--no-neo4j`、`--unsafe` 这类会破坏本规范确定性契约的开关。CLI 也不得直接调用 validator / materializer / `ExcelIngestionService` 内部 / Catalog dataset API / `DatabaseInitializer` / Neo4j writer / SQLite writer。服务实例按正常 runtime 配置构造（`SMARTDATA_CATALOG` 与 API、MCP、`doctor` 同约定），不注入 fake graph 或 `NullGraphReader`。
+CLI 只负责 `argument registration → ExcelImportRequest → QanerisService.import_excel()` 与输出格式化。禁止新增 `--force`、`--skip-validation`、`--no-scan`、`--no-neo4j`、`--unsafe` 这类会破坏本规范确定性契约的开关。CLI 也不得直接调用 validator / materializer / `ExcelIngestionService` 内部 / Catalog dataset API / `DatabaseInitializer` / Neo4j writer / SQLite writer。服务实例按正常 runtime 配置构造（`QANERIS_CATALOG` 与 API、MCP、`doctor` 同约定），不注入 fake graph 或 `NullGraphReader`。
 
 Human output（成功）至少包含 `[PASS] Excel import ready`、`Datasource`、`Snapshot`、`Scan version`、`Sheets`、`Artifact`（受管 artifact directory，而不是内部 `sqlite_path`）；可选 `Name`、`Import ID`、逐条 `Warnings`。不得打印业务 cell value、原始 row、完整 workbook、连接 secret 或环境变量值。
 
@@ -579,7 +579,7 @@ Exit codes 沿用现有 CLI 统一约定：
 
 幂等由 Application Service 负责；CLI 不提供 `force refresh`、`rescan` 或新建 datasource 的捷径，重复执行同一文件只展示既有结果。
 
-CLI 验收脚本：`smartdata/scripts/acceptance/import_excel_cli.py`（以真实 console script 运行真实 Neo4j）。
+CLI 验收脚本：`qaneris/scripts/acceptance/import_excel_cli.py`（以真实 console script 运行真实 Neo4j）。
 
 ### 16.2 HTTP Upload Interface（EXCEL-01C）
 
@@ -596,7 +596,7 @@ Content-Type: multipart/form-data
 | `name` | 否 | datasource 名称，trim 后 1..100 字符；缺省由 Core 生成 |
 | `workspace_id` | 否 | workspace id，默认 `default`，trim 后不得为空 |
 
-禁止存在 `file_path`、`force_new`、`skip_validation`、`no_scan`、`no_neo4j` 等开关；未知 form 字段被忽略且不产生任何效果，端点只把 `file` / `name` / `workspace_id` 组装成 `ExcelImportRequest` 交给 `SmartDataService.import_excel()`，不得直连 validator、materializer、Catalog dataset API、`DatabaseInitializer` 或 Neo4j writer。
+禁止存在 `file_path`、`force_new`、`skip_validation`、`no_scan`、`no_neo4j` 等开关；未知 form 字段被忽略且不产生任何效果，端点只把 `file` / `name` / `workspace_id` 组装成 `ExcelImportRequest` 交给 `QanerisService.import_excel()`，不得直连 validator、materializer、Catalog dataset API、`DatabaseInitializer` 或 Neo4j writer。
 
 端点本身是 `async`（读取 multipart 必须 `await`），但 `import_excel()` 是阻塞调用。它必须在线程池中执行（`run_in_threadpool`），不得直接跑在事件循环上：否则一次慢导入会让整个服务失去响应，包括 `/health`。
 
@@ -631,9 +631,9 @@ Content-Type: multipart/form-data
 | 422 | 请求层问题（缺 `file` part、`filename` 为空等 FastAPI 校验失败） | `{"error": {"code": "validation_error", ...}}` |
 | 500 | 非预期异常 | 通用错误，message 已脱敏，不回显内部路径或 cell value |
 
-必须保留稳定 Excel error code，不得被通用 `SmartDataError` handler 压成 `excel_ingestion_failed` 或 `invalid_request`；`code` 是调用方唯一可分支的契约。`sheet` / `coordinate` 允许出现在 message 与结构化字段中，但绝不回显 formula body、业务 cell value 或 secret。
+必须保留稳定 Excel error code，不得被通用 `QanerisError` handler 压成 `excel_ingestion_failed` 或 `invalid_request`；`code` 是调用方唯一可分支的契约。`sheet` / `coordinate` 允许出现在 message 与结构化字段中，但绝不回显 formula body、业务 cell value 或 secret。
 
-临时文件生命周期（`smartdata/interfaces/api/excel.py`）：
+临时文件生命周期（`qaneris/interfaces/api/excel.py`）：
 
 - 私有大写目录：`<artifact_root>/uploads/`，mode `0700`（artifact root 必须在 repository 之外）。
 - 每次上传用 `mkdtemp(prefix="excel-upload-")` 生成不可预测子目录，文件以 `O_CREAT|O_EXCL|O_WRONLY` 创建，mode `0600`。
@@ -693,7 +693,7 @@ src/App.jsx             编排：上传 → 刷新 datasource 列表 → 自动�
 新增：
 
 ```text
-smartdata source import-excel <file.xlsx>
+qaneris source import-excel <file.xlsx>
   --name <datasource-name>
   --workspace <workspace>
   --json
@@ -701,7 +701,7 @@ smartdata source import-excel <file.xlsx>
 
 CLI 只能调用 Application Service。
 
-已实现：命令注册、human/JSON 输出、exit code 与稳定错误码见 §16.1；定向 CLI 验收见 `smartdata/scripts/acceptance/import_excel_cli.py`。
+已实现：命令注册、human/JSON 输出、exit code 与稳定错误码见 §16.1；定向 CLI 验收见 `qaneris/scripts/acceptance/import_excel_cli.py`。
 
 ### EXCEL-01C — Roadshow E2E / Web
 
@@ -711,12 +711,12 @@ CLI 只能调用 Application Service。
 - Upload progress / validation error 展示。
 - 导入成功后自动成为可选择 Datasource。
 - 固定 Excel acceptance workbook。
-- 使用现有 `SmartDataService.ask()` 完成至少一条真实 Grounding → Query → Result。
+- 使用现有 `QanerisService.ask()` 完成至少一条真实 Grounding → Query → Result。
 - 接入统一 Streaming contract 时只消费公开事件。
 
 已实现：HTTP 边界见 §16.2，Web 切片见 §16.3。统一 Streaming contract 仍未实现，因此本切片只消费同步 `POST /api/ask`，不引入第二套进度协议。
 
-验收脚本：`smartdata/scripts/acceptance/excel_web_ask.py`（真实 Neo4j + 真实模型网关 + 真实 HTTP multipart + 通过 Node 运行真实前端模块）。
+验收脚本：`qaneris/scripts/acceptance/excel_web_ask.py`（真实 Neo4j + 真实模型网关 + 真实 HTTP multipart + 通过 Node 运行真实前端模块）。
 
 ## 18. Tests(测试要求)
 
@@ -801,7 +801,7 @@ status
 
 需要记录 import_id、datasource_id、snapshot_id、scan_version、SQL display、row_count 与 expected result。
 
-实现为 `smartdata/scripts/acceptance/excel_web_ask.py`，以真实 API 子进程 + 真实 Neo4j + 真实模型网关运行，覆盖 41 项断言：
+实现为 `qaneris/scripts/acceptance/excel_web_ask.py`，以真实 API 子进程 + 真实 Neo4j + 真实模型网关运行，覆盖 41 项断言：
 
 ```text
 multipart upload  -> POST /api/datasources/import-excel   (201 READY, neo4j_publication_verified)

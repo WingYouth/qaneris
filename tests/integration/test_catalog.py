@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from smartdata.catalog import Catalog
-from smartdata.contracts import (
+from qaneris.catalog import Catalog
+from qaneris.contracts import (
     DatasetInfo,
     DatasourceCreate,
     FieldInfo,

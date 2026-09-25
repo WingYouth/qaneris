@@ -10,7 +10,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Self
 
-from smartdata.graph.neo4j import Neo4jGraphReader, Neo4jGraphStore
+from qaneris.graph.neo4j import Neo4jGraphReader, Neo4jGraphStore
 
 
 class _Result:

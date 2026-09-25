@@ -4,10 +4,10 @@ import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.common.errors import QueryExecutionError
-from smartdata.contracts import (
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.common.errors import QueryExecutionError
+from qaneris.contracts import (
     AskEvent,
     AskEventType,
     AskRequest,
@@ -21,8 +21,8 @@ from smartdata.contracts import (
     QueryLanguage,
     QueryResultType,
 )
-from smartdata.contracts.semantic import AggregateFunction, SemanticAssetType
-from smartdata.semantic import ClarificationOption, ClarificationRequest
+from qaneris.contracts.semantic import AggregateFunction, SemanticAssetType
+from qaneris.semantic import ClarificationOption, ClarificationRequest
 
 
 class IntentModel:
@@ -93,8 +93,8 @@ def grounded_execution() -> GroundedExecution:
 
 def make_service(
     tmp_path, query: BusinessQuery | None = None
-) -> SmartDataService:
-    instance = SmartDataService(
+) -> QanerisService:
+    instance = QanerisService(
         Catalog(tmp_path / "catalog.db"), model=IntentModel(query or business_query())
     )
     instance._require_ready_scope = Mock()
@@ -121,8 +121,8 @@ def executable_grounding() -> SimpleNamespace:
     )
 
 
-def wire_success(instance: SmartDataService) -> None:
-    from smartdata.contracts import Datasource, DatasourceKind
+def wire_success(instance: QanerisService) -> None:
+    from qaneris.contracts import Datasource, DatasourceKind
 
     instance.catalog.get_datasource = Mock(return_value=(Datasource(
         id="ds-sales", name="sales", workspace_id="workspace-a",
@@ -282,7 +282,7 @@ def test_execution_failure_emits_error_then_done_and_one_terminal(tmp_path) -> N
 
 def test_event_contract_removes_private_reasoning_and_credentials(monkeypatch) -> None:
     secret = "unit-stream-secret"
-    monkeypatch.setenv("SMARTDATA_TEST_TOKEN", secret)
+    monkeypatch.setenv("QANERIS_TEST_TOKEN", secret)
 
     event = AskEvent(
         event_type="error",

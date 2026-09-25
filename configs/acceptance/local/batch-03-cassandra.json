@@ -21,7 +21,7 @@
           "username": "cassandra",
           "password": {
             "provider": "environment",
-            "identifier": "SMARTDATA_CASSANDRA_PASSWORD"
+            "identifier": "QANERIS_CASSANDRA_PASSWORD"
           }
         }
       }

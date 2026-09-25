@@ -1,7 +1,7 @@
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from smartdata.contracts import (
+from qaneris.contracts import (
     BusinessObjective,
     BusinessQuery,
     ComparisonSpec,

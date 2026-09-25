@@ -13,7 +13,7 @@ export class ApiError extends Error {
 
 export function assertRelativeUrl(url) {
   if (typeof url !== "string" || !url.startsWith("/") || url.startsWith("//")) {
-    throw new TypeError("SmartData API requests must use a relative URL beginning with '/'.");
+    throw new TypeError("Qaneris API requests must use a relative URL beginning with '/'.");
   }
 }
 
@@ -61,7 +61,7 @@ export async function requestJson(url, { json, headers, ...options } = {}) {
   try {
     response = await fetch(url, requestOptions);
   } catch (cause) {
-    throw new ApiError("Unable to reach the SmartData backend.", {
+    throw new ApiError("Unable to reach the Qaneris backend.", {
       status: 0,
       code: NETWORK_ERROR_CODE,
       cause,

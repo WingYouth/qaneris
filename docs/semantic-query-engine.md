@@ -1,4 +1,4 @@
-# SmartData Semantic Query Engine(语义查询引擎设计)
+# Qaneris Semantic Query Engine(语义查询引擎设计)
 
 ## 1. Formal Pipeline(正式主链)
 
@@ -135,7 +135,7 @@ Question(问题)
 - Provenance 校验：`GroundedNativeQueryValidator.validate(native, plan, expected=expected)` 比较
   `datasource_id` / `plan_id` / `scan_version` / `query_language` / `command` / `parameters` 六字段是否
   与编译产物一致；同 identifier 但 `command` / `parameters` 被替换的伪造 native 一律拒绝。
-- **正式执行入口 `SmartDataService.execute_grounded_plan(context, plan, workspace_id, max_rows)`**
+- **正式执行入口 `QanerisService.execute_grounded_plan(context, plan, workspace_id, max_rows)`**
   七步串行执行：Plan Validation → Compiler → Native Validation（含 provenance）→ 读图拿当前
   `scan_version` → Revision Validation → Adapter 执行 → `GroundedExecution`。
   原 `execute_grounded_query(native, ...)` 仅作为内部 primitive，不再是 Application Service 的公开授权入口。
@@ -152,7 +152,7 @@ Question(问题)
 4. Planner Model(规划模型)：在 GroundedQuery + Allowlist 约束下辅助生成结构化 QueryPlan。
 5. Answer Model(回答模型)：Typed Result + Evidence + QueryTrace → 最终自然语言回答。
 
-这些是 Role(角色)，不要求部署五个不同模型。业务模块应依赖 `smartdata/llm/` 抽象，不直接绑定具体 Provider(提供商)。
+这些是 Role(角色)，不要求部署五个不同模型。业务模块应依赖 `qaneris/llm/` 抽象，不直接绑定具体 Provider(提供商)。
 
 ## 4. Grounding Decision(语义落地决策)
 
@@ -203,7 +203,7 @@ Clarification 输出只展示必要的人类可读业务选项，不泄漏敏感
 
 ## 6.1 Unified Ask Orchestration(统一问数编排)
 
-`SmartDataService.ask()` 是唯一正式自然语言 Ask 主链：
+`QanerisService.ask()` 是唯一正式自然语言 Ask 主链：
 
 ```text
 RuleExtractor + LLMBusinessParser
@@ -270,7 +270,7 @@ GroundedQuery(已落地查询)
 
 ### GroundedQueryContext(查询上下文)
 
-正式契约定义在 `smartdata/contracts/query.py`，由 `smartdata/querying/context.py` 构建。
+正式契约定义在 `qaneris/contracts/query.py`，由 `qaneris/querying/context.py` 构建。
 
 - 携带：workspace / requested datasource / objective / 已落地绑定 / 指标 / 维度 / 实体 / 过滤 / 排名 /
   衍生计算 / 时间表达与规范化时间范围 / 时间字段 / 期望输出 / 已确认关系 / 四个 Allowlist + 字段标识 Allowlist /
@@ -281,7 +281,7 @@ GroundedQuery(已落地查询)
 
 ### GroundedQueryPlan(查询计划)
 
-正式契约定义在 `smartdata/contracts/query.py`，由 `smartdata/querying/planning/grounded_planner.py` 生成。
+正式契约定义在 `qaneris/contracts/query.py`，由 `qaneris/querying/planning/grounded_planner.py` 生成。
 
 - 表达“如何查询”，不表达 SQL / CQL / Cypher / Flux(原生查询语言)，契约中没有命令字段与查询语言字段。
 - 支持：字段选择、聚合(count / sum / average / minimum / maximum)、过滤
@@ -292,7 +292,7 @@ GroundedQuery(已落地查询)
 
 ### Legacy Contract(旧契约)
 
-`smartdata/contracts/query.py` 中的 `QueryContext` / `QueryPlan` 是基于 `CompanyDataProfile`(企业数据画像)
+`qaneris/contracts/query.py` 中的 `QueryContext` / `QueryPlan` 是基于 `CompanyDataProfile`(企业数据画像)
 的旧契约，保留为兼容路径，供 `QueryPreparationPipeline`(查询准备流水线)与旧 `ask()` 使用。
 新能力不得依赖它们；统一 `ask()` 主链属 P1-04D。
 

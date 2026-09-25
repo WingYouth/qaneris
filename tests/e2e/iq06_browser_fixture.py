@@ -17,18 +17,18 @@ import uvicorn
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "integration"))
 sys.path.insert(0, str(ROOT / "tests"))
-DIRECTORY = Path(tempfile.mkdtemp(prefix="smartdata-iq06-browser-"))
-os.environ.setdefault("SMARTDATA_GRAPH_STORE", "null")
-os.environ["SMARTDATA_CATALOG"] = str(DIRECTORY / "bootstrap.db")
+DIRECTORY = Path(tempfile.mkdtemp(prefix="qaneris-iq06-browser-"))
+os.environ.setdefault("QANERIS_GRAPH_STORE", "null")
+os.environ["QANERIS_CATALOG"] = str(DIRECTORY / "bootstrap.db")
 
 from test_diagnostic_sqlite_e2e import Model as DiagnosticModel
 from test_federation_sqlite_e2e import _setup
 from test_grounded_sqlite_pipeline_execution import governed_assets, registry_with, scanned
 
-import smartdata.interfaces.api.app as api_module
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.graph.reading import GraphStructureRequest
+import qaneris.interfaces.api.app as api_module
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.graph.reading import GraphStructureRequest
 
 
 def fixture_app():
@@ -55,7 +55,7 @@ def fixture_app():
                     return super().parse_business_query(question, rule_facts)
 
             model = SlowModel()
-        service = SmartDataService(Catalog(catalog_path), model=model, graph_reader=reader)
+        service = QanerisService(Catalog(catalog_path), model=model, graph_reader=reader)
     else:
         runtime, _, _, reader = _setup(DIRECTORY)
         service = runtime.federation_service
@@ -72,7 +72,7 @@ def fixture_app():
             cardinality="ONE_TO_ONE", null_policy="REJECT",
         )
         runtime.federation.governance.confirm(mapping.mapping_id, "iq06-fixture")
-    api_module.SmartDataService = lambda _catalog: service
+    api_module.QanerisService = lambda _catalog: service
     app = api_module.create_app(database_path=str(catalog_path))
     if os.getenv("IQ06_FAIL_ONCE") == "1":
         class TemporaryFailure(RuntimeError):

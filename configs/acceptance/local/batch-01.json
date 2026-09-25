@@ -21,7 +21,7 @@
           "username": "readonly",
           "password": {
             "provider": "environment",
-            "identifier": "SMARTDATA_POSTGRES_PASSWORD"
+            "identifier": "QANERIS_POSTGRES_PASSWORD"
           }
         }
       }
@@ -47,7 +47,7 @@
           "username": "readonly",
           "password": {
             "provider": "environment",
-            "identifier": "SMARTDATA_MYSQL_PASSWORD"
+            "identifier": "QANERIS_MYSQL_PASSWORD"
           }
         }
       }

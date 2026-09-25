@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from smartdata.answering import AnswerComposer
-from smartdata.common.errors import ModelInvocationError
-from smartdata.contracts import GroundedQueryResult, QueryLanguage
+from qaneris.answering import AnswerComposer
+from qaneris.common.errors import ModelInvocationError
+from qaneris.contracts import GroundedQueryResult, QueryLanguage
 
 
 class AnswerModel:

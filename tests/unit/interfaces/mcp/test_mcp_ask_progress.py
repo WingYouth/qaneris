@@ -24,14 +24,14 @@ import anyio
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session as connected_session
 
-from smartdata.contracts import (
+from qaneris.contracts import (
     AskEvent,
     AskEventType,
     AskResponse,
     AskStatus,
     ErrorDetail,
 )
-from smartdata.interfaces.mcp import server
+from qaneris.interfaces.mcp import server
 
 
 class FakeContext:

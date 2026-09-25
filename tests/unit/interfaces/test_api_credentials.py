@@ -24,11 +24,11 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 from fastapi.testclient import TestClient
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.connections.credential_service import CredentialService
-from smartdata.connections.managed_store import ManagedCredentialStore
-from smartdata.contracts.connection import (
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.connections.credential_service import CredentialService
+from qaneris.connections.managed_store import ManagedCredentialStore
+from qaneris.contracts.connection import (
     AuthenticationConfig,
     AuthenticationMethod,
     ConnectionEndpoint,
@@ -37,9 +37,9 @@ from smartdata.contracts.connection import (
     SecretReference,
     SecureDatasourceCreate,
 )
-from smartdata.contracts.datasource import DatasourceKind
-from smartdata.interfaces.api import credentials as boundary
-from smartdata.interfaces.api.app import create_app
+from qaneris.contracts.datasource import DatasourceKind
+from qaneris.interfaces.api import credentials as boundary
+from qaneris.interfaces.api.app import create_app
 
 PASSWORD_MARKER = "UNIQUE_PASSWORD_MARKER"
 TOKEN_MARKER = "UNIQUE_TOKEN_MARKER"
@@ -68,7 +68,7 @@ def certificate(
     issuer = key or rsa.generate_private_key(public_exponent=65537, key_size=2048)
     now = dt.datetime.now(dt.UTC)
     name = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, "SmartData Test CA" if ca else "client")]
+        [x509.NameAttribute(NameOID.COMMON_NAME, "Qaneris Test CA" if ca else "client")]
     )
     builder = (
         x509.CertificateBuilder()
@@ -142,22 +142,22 @@ def ca_certificate_pem() -> str:
 # --------------------------------------------------------------------------------------------
 
 
-def build_client(tmp_path: Path) -> tuple[TestClient, SmartDataService]:
+def build_client(tmp_path: Path) -> tuple[TestClient, QanerisService]:
     """An app composed like production, on its own catalog, with a test-only managed store."""
     store = ManagedCredentialStore.from_environment(
         {
-            "SMARTDATA_SECRET_STORE_DIR": str(tmp_path / "secrets"),
-            "SMARTDATA_MASTER_KEY": ManagedCredentialStore.generate_master_key(),
+            "QANERIS_SECRET_STORE_DIR": str(tmp_path / "secrets"),
+            "QANERIS_MASTER_KEY": ManagedCredentialStore.generate_master_key(),
         }
     )
     catalog = Catalog(tmp_path / "catalog.db")
-    service = SmartDataService(catalog, credential_service=CredentialService(store, catalog))
+    service = QanerisService(catalog, credential_service=CredentialService(store, catalog))
     app = create_app(database_path=str(tmp_path / "catalog.db"))
     app.state.service = service
     return TestClient(app, raise_server_exceptions=False), service
 
 
-def store_files(service: SmartDataService) -> list[Path]:
+def store_files(service: QanerisService) -> list[Path]:
     directory = service._credentials().store.store_dir
     return sorted(directory.iterdir()) if directory.exists() else []
 
@@ -362,7 +362,7 @@ def test_a_pem_ca_certificate_is_accepted(tmp_path: Path) -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["kind"] == "ca_certificate"
-    assert body["metadata"]["subject"] == "CN=SmartData Test CA"
+    assert body["metadata"]["subject"] == "CN=Qaneris Test CA"
     stored = service._credentials().store.resolve(body["secret_id"])
     assert stored.startswith("-----BEGIN CERTIFICATE-----")
 
@@ -735,7 +735,7 @@ def test_the_boundary_reaches_nothing_but_the_application_service() -> None:
         "CertificateValidator",
         "SecretResolver",
         "Catalog(",
-        "SmartDataService(",
+        "QanerisService(",
         "count_managed_secret_references",
     ):
         assert name not in source, name
@@ -765,8 +765,8 @@ def test_the_credential_store_configuration_error_is_preserved(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A server without a configured store fails closed rather than inventing a key."""
-    monkeypatch.delenv("SMARTDATA_SECRET_STORE_DIR", raising=False)
-    monkeypatch.delenv("SMARTDATA_MASTER_KEY", raising=False)
+    monkeypatch.delenv("QANERIS_SECRET_STORE_DIR", raising=False)
+    monkeypatch.delenv("QANERIS_MASTER_KEY", raising=False)
     app = create_app(database_path=str(tmp_path / "catalog.db"))
     client = TestClient(app, raise_server_exceptions=False)
 

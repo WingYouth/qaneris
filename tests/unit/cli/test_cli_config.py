@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from smartdata.cli.config import DatasourceConfigError, load_datasource_requests
+from qaneris.cli.config import DatasourceConfigError, load_datasource_requests
 
 
 def sqlite_request(path: str = "/tmp/source.db") -> dict:

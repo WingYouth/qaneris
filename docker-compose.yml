@@ -1,17 +1,17 @@
 services:
-  smartdata:
+  qaneris:
     build: .
     ports:
       - "8000:8000"
     environment:
-      SMARTDATA_CATALOG: /data/smartdata.db
-      SMARTDATA_GRAPH_STORE: neo4j
-      SMARTDATA_NEO4J_URI: bolt://neo4j:7687
-      SMARTDATA_NEO4J_USERNAME: ${SMARTDATA_NEO4J_USERNAME:-neo4j}
-      SMARTDATA_NEO4J_PASSWORD: ${SMARTDATA_NEO4J_PASSWORD}
-      SMARTDATA_NEO4J_DATABASE: ${SMARTDATA_NEO4J_DATABASE:-neo4j}
+      QANERIS_CATALOG: /data/qaneris.db
+      QANERIS_GRAPH_STORE: neo4j
+      QANERIS_NEO4J_URI: bolt://neo4j:7687
+      QANERIS_NEO4J_USERNAME: ${QANERIS_NEO4J_USERNAME:-neo4j}
+      QANERIS_NEO4J_PASSWORD: ${QANERIS_NEO4J_PASSWORD}
+      QANERIS_NEO4J_DATABASE: ${QANERIS_NEO4J_DATABASE:-neo4j}
     volumes:
-      - smartdata-catalog:/data
+      - qaneris-catalog:/data
     depends_on:
       neo4j:
         condition: service_healthy
@@ -22,9 +22,9 @@ services:
       - "7474:7474"
       - "7687:7687"
     environment:
-      NEO4J_AUTH: ${SMARTDATA_NEO4J_USERNAME:-neo4j}/${SMARTDATA_NEO4J_PASSWORD}
+      NEO4J_AUTH: ${QANERIS_NEO4J_USERNAME:-neo4j}/${QANERIS_NEO4J_PASSWORD}
     volumes:
-      - smartdata-neo4j:/data
+      - qaneris-neo4j:/data
     healthcheck:
       test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:7474"]
       interval: 5s
@@ -32,5 +32,5 @@ services:
       retries: 20
 
 volumes:
-  smartdata-catalog:
-  smartdata-neo4j:
+  qaneris-catalog:
+  qaneris-neo4j:

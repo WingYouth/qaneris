@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import pytest
 
-from smartdata.common.errors import TLSFeatureUnsupportedError
-from smartdata.connections.tls_materializer import TLSMaterializer
-from smartdata.connections.tls_matrix import TLS_DRIVER_MATRIX, TLSStrategy
+from qaneris.common.errors import TLSFeatureUnsupportedError
+from qaneris.connections.tls_materializer import TLSMaterializer
+from qaneris.connections.tls_matrix import TLS_DRIVER_MATRIX, TLSStrategy
 from tests.unit._tls_helpers import (
     ca_certificate,
     client_certificate,

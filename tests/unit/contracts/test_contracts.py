@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from smartdata.contracts import (
+from qaneris.contracts import (
     DataObjectKind,
     DataObjectProfile,
     DataSourceProfile,

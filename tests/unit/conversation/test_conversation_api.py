@@ -5,8 +5,8 @@ import asyncio
 from fastapi.testclient import TestClient
 from test_runtime import FakeAsk, FakeModel, QueuedScheduler
 
-from smartdata.interfaces.api.app import create_app
-from smartdata.runtime.scheduler import InlineRunScheduler
+from qaneris.interfaces.api.app import create_app
+from qaneris.runtime.scheduler import InlineRunScheduler
 
 
 def test_conversation_routes_and_replayed_sse(tmp_path):

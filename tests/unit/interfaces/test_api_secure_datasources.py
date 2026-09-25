@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-from smartdata.connections.tls_matrix import TLS_DRIVER_MATRIX
-from smartdata.interfaces.api.app import create_app
+from qaneris.connections.tls_matrix import TLS_DRIVER_MATRIX
+from qaneris.interfaces.api.app import create_app
 
 
 def client(tmp_path):

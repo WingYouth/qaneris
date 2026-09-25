@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from smartdata.contracts.query import GroundedQueryContext
-from smartdata.contracts.semantic import (
+from qaneris.contracts.query import GroundedQueryContext
+from qaneris.contracts.semantic import (
     AggregateFunction,
     BusinessQuery,
     GroundedQuery,
@@ -11,8 +11,8 @@ from smartdata.contracts.semantic import (
     SemanticAssetType,
     SemanticCandidate,
 )
-from smartdata.querying import QueryContextBuilder
-from smartdata.semantic.grounding import GroundingResult
+from qaneris.querying import QueryContextBuilder
+from qaneris.semantic.grounding import GroundingResult
 
 DS = "ds_sales"
 OTHER_DS = "ds_crm"

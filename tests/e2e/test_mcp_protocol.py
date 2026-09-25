@@ -54,13 +54,13 @@ def anyio_backend() -> str:
 def server_parameters(tmp_path: Path) -> StdioServerParameters:
     return StdioServerParameters(
         command=sys.executable,
-        args=["-m", "smartdata.interfaces.mcp.server"],
+        args=["-m", "qaneris.interfaces.mcp.server"],
         env={
-            "SMARTDATA_CATALOG": str(tmp_path / "catalog.db"),
+            "QANERIS_CATALOG": str(tmp_path / "catalog.db"),
             # The null store keeps publication a no-op. The Scan path is still real; only the graph
             # backend is absent, which is why the natural-language test below is the one that needs
             # to be gated on a real graph.
-            "SMARTDATA_GRAPH_STORE": "null",
+            "QANERIS_GRAPH_STORE": "null",
         },
         cwd=PROJECT_ROOT,
     )
@@ -72,9 +72,9 @@ def graph_backend_ready() -> bool:
     A configured-but-unreachable Neo4j is not "ready": the semantic retrieval step would fail on
     connect, so the check is a real connection attempt rather than an environment variable test.
     """
-    if os.environ.get("SMARTDATA_GRAPH_STORE", "neo4j").strip().lower() != "neo4j":
+    if os.environ.get("QANERIS_GRAPH_STORE", "neo4j").strip().lower() != "neo4j":
         return False
-    uri = os.environ.get("SMARTDATA_NEO4J_URI")
+    uri = os.environ.get("QANERIS_NEO4J_URI")
     if not uri:
         return False
     parsed = urlsplit(uri)
@@ -88,7 +88,7 @@ def graph_backend_ready() -> bool:
 
 
 def model_gateway_ready() -> bool:
-    from smartdata.llm.gateway import AiyallmSchemaModel
+    from qaneris.llm.gateway import AiyallmSchemaModel
 
     return AiyallmSchemaModel.from_environment() is not None
 
@@ -177,7 +177,7 @@ async def test_stdio_roadshow_path_with_progress(
         )
 
     # -- the server and its surface ------------------------------------------------------------
-    assert initialized.serverInfo.name == "SmartData"
+    assert initialized.serverInfo.name == "Qaneris"
     assert {
         "list_adapters",
         "list_datasources",
@@ -296,9 +296,9 @@ async def test_stdio_natural_language_question_contract(
     gateway, so without them it skips and says so.
     """
     if not model_gateway_ready():
-        pytest.skip("model gateway not configured (SMARTDATA_MODEL_* unset)")
+        pytest.skip("model gateway not configured (QANERIS_MODEL_* unset)")
     if not graph_backend_ready():
-        pytest.skip("published graph backend unreachable (SMARTDATA_NEO4J_URI)")
+        pytest.skip("published graph backend unreachable (QANERIS_NEO4J_URI)")
 
     demo_database = create_demo_database(tmp_path / "sales.db")
     cases = json.loads(

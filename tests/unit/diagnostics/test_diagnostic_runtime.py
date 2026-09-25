@@ -6,23 +6,23 @@ from dataclasses import dataclass
 
 import pytest
 
-from smartdata.contracts import (
+from qaneris.contracts import (
     AskClarification,
     AskEvent,
     AskResponse,
     AskStatus,
     ErrorDetail,
 )
-from smartdata.contracts.query import ExecutionEvidence, GroundedQueryResult
-from smartdata.conversation.context import ConversationContextResolver
-from smartdata.conversation.repository import SQLiteConversationRepository
-from smartdata.conversation.service import ConversationService
-from smartdata.diagnostics.models import DiagnosticDecision, EvidenceQuestion, TaskStatus
-from smartdata.diagnostics.policy import select_questions
-from smartdata.runtime.models import RunStatus
-from smartdata.runtime.orchestrator import RunOrchestrator
-from smartdata.runtime.repository import SQLiteRunRepository
-from smartdata.runtime.scheduler import InlineRunScheduler
+from qaneris.contracts.query import ExecutionEvidence, GroundedQueryResult
+from qaneris.conversation.context import ConversationContextResolver
+from qaneris.conversation.repository import SQLiteConversationRepository
+from qaneris.conversation.service import ConversationService
+from qaneris.diagnostics.models import DiagnosticDecision, EvidenceQuestion, TaskStatus
+from qaneris.diagnostics.policy import select_questions
+from qaneris.runtime.models import RunStatus
+from qaneris.runtime.orchestrator import RunOrchestrator
+from qaneris.runtime.repository import SQLiteRunRepository
+from qaneris.runtime.scheduler import InlineRunScheduler
 
 
 @dataclass
@@ -400,6 +400,6 @@ def test_policy_rejects_native_and_duplicates():
 
 
 def runtime_budget():
-    from smartdata.diagnostics.models import DiagnosticBudget
+    from qaneris.diagnostics.models import DiagnosticBudget
 
     return DiagnosticBudget()

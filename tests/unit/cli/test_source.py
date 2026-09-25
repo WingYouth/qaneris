@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from smartdata.cli import main as cli
-from smartdata.contracts import (
+from qaneris.cli import main as cli
+from qaneris.contracts import (
     ConnectionTestReport,
     ConnectionTestResult,
     ScanRunInfo,

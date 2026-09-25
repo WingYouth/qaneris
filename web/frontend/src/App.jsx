@@ -52,15 +52,15 @@ function App() {
   const intro = viewIntro[activeView];
   return <div className="app-shell">
     <aside className="sidebar">
-      <a className="brand" href="#workspace"><span className="brand__mark" aria-hidden="true">S<span>·</span></span><span className="brand__copy"><strong>SmartData</strong><small>DATA INTELLIGENCE</small></span></a>
+      <a className="brand" href="#workspace"><span className="brand__mark" aria-hidden="true">S<span>·</span></span><span className="brand__copy"><strong>Qaneris</strong><small>DATA INTELLIGENCE</small></span></a>
       <ProductNav activeView={activeView} onNavigate={setActiveView} />
-      <div className="sidebar__bottom"><div className="workspace-card"><span className="workspace-card__label">CURRENT WORKSPACE</span><strong><span className="workspace-card__dot" />{workspaceId}</strong><span>安全的数据探索空间</span></div><span className="sidebar__signature">SMARTDATA / ROADSHOW</span></div>
+      <div className="sidebar__bottom"><div className="workspace-card"><span className="workspace-card__label">CURRENT WORKSPACE</span><strong><span className="workspace-card__dot" />{workspaceId}</strong><span>安全的数据探索空间</span></div><span className="sidebar__signature">QANERIS / ROADSHOW</span></div>
     </aside>
     <main className="app-main" id="workspace">
       <header className="topbar"><div className="topbar__path"><span>工作台</span><span aria-hidden="true">/</span><strong>{intro.label}</strong></div><BackendStatus availability={health.availability} version={health.version} /></header>
       <div className="content">
         <section className="page-hero" aria-labelledby="page-title"><span className="page-hero__eyebrow">{intro.number} &nbsp; {intro.label}</span><h1 id="page-title">{intro.title}</h1><p>{intro.description}</p></section>
-        {offline ? <div role="alert" className="feedback feedback--error"><strong>SmartData 后端不可用</strong><p>{health.error?.message || "请检查 FastAPI 服务。"}</p><button onClick={refreshHealth}>重试</button></div> : null}
+        {offline ? <div role="alert" className="feedback feedback--error"><strong>Qaneris 后端不可用</strong><p>{health.error?.message || "请检查 FastAPI 服务。"}</p><button onClick={refreshHealth}>重试</button></div> : null}
         {activeView === "ask" ? <ConversationWorkspace key={workspaceId} workspaceId={workspaceId} datasources={datasources} backendAvailable={health.availability === "available"} suggestedScope={scope} /> : null}
         {activeView === "datasources" ? <DatasourceManager workspaceId={workspaceId} onAsk={goAsk} onWorkspaceChange={changeWorkspace} /> : null}
         {activeView === "excel" ? <><ExcelImportCard state={importState} fileName={file?.name || ""} datasourceName={datasourceName} workspaceId={workspaceId} disabled={health.availability !== "available"} onFileNameChange={setFile} onDatasourceNameChange={setDatasourceName} onWorkspaceChange={changeWorkspace} onSubmit={handleImport} />

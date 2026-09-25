@@ -6,12 +6,12 @@ from copy import deepcopy
 
 import pytest
 
-from smartdata.adapters.base import DataSourceAdapter
-from smartdata.catalog import Catalog
-from smartdata.contracts import DatasetInfo, Datasource, DatasourceCreate, NormalizedResult
-from smartdata.contracts.profile import ScanStatus
-from smartdata.initialization import DatabaseInitializer
-from smartdata.scan import ScanGraph, ScanService
+from qaneris.adapters.base import DataSourceAdapter
+from qaneris.catalog import Catalog
+from qaneris.contracts import DatasetInfo, Datasource, DatasourceCreate, NormalizedResult
+from qaneris.contracts.profile import ScanStatus
+from qaneris.initialization import DatabaseInitializer
+from qaneris.scan import ScanGraph, ScanService
 
 
 class FakeGraphStore:
@@ -167,7 +167,7 @@ def test_initialization_job_redacts_materialized_secret_errors(tmp_path, monkeyp
             raise RuntimeError(f"scan failed with {secret}")
 
     monkeypatch.setattr(
-        "smartdata.initialization.service.create_adapter",
+        "qaneris.initialization.service.create_adapter",
         lambda datasource_id, kind, connection: FailingAdapter(),
     )
     initializer = DatabaseInitializer(

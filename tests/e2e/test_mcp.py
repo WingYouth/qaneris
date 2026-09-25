@@ -16,11 +16,11 @@ from pathlib import Path
 
 import pytest
 
-import smartdata.interfaces.mcp.server as mcp_server
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.contracts import MappingInfo, RelationInfo
-from smartdata.contracts.connection import SecureDatasourceCreate
+import qaneris.interfaces.mcp.server as mcp_server
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.contracts import MappingInfo, RelationInfo
+from qaneris.contracts.connection import SecureDatasourceCreate
 
 
 @pytest.fixture
@@ -29,8 +29,8 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture
-def service(tmp_path: Path, monkeypatch) -> SmartDataService:
-    instance = SmartDataService(Catalog(tmp_path / "catalog.db"))
+def service(tmp_path: Path, monkeypatch) -> QanerisService:
+    instance = QanerisService(Catalog(tmp_path / "catalog.db"))
     monkeypatch.setattr(mcp_server, "service", instance)
     return instance
 
@@ -43,7 +43,7 @@ def source_database(path: Path) -> Path:
 
 
 @pytest.mark.anyio
-async def test_lists_relations_and_mappings(service: SmartDataService, tmp_path: Path) -> None:
+async def test_lists_relations_and_mappings(service: QanerisService, tmp_path: Path) -> None:
     source = source_database(tmp_path / "sales.db")
     datasource = service.create_secure_datasource(
         SecureDatasourceCreate(
@@ -77,7 +77,7 @@ async def test_lists_relations_and_mappings(service: SmartDataService, tmp_path:
 
 @pytest.mark.anyio
 async def test_explicit_read_only_sql_remains_available(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     """The optional ``sql`` argument still goes through read-only validation."""
     source = source_database(tmp_path / "sales.db")
@@ -104,7 +104,7 @@ async def test_explicit_read_only_sql_remains_available(
 
 @pytest.mark.anyio
 async def test_explicit_sql_cannot_bypass_the_safety_check(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     source = source_database(tmp_path / "sales.db")
     datasource = service.create_secure_datasource(
@@ -126,7 +126,7 @@ async def test_explicit_sql_cannot_bypass_the_safety_check(
 
 @pytest.mark.anyio
 async def test_schema_tools_answer_without_a_catalog_handle(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     source = source_database(tmp_path / "sales.db")
     datasource = service.create_secure_datasource(
@@ -149,7 +149,7 @@ async def test_schema_tools_answer_without_a_catalog_handle(
 
 @pytest.mark.anyio
 async def test_search_dataset_finds_by_name_and_field(
-    service: SmartDataService, tmp_path: Path
+    service: QanerisService, tmp_path: Path
 ) -> None:
     source = source_database(tmp_path / "sales.db")
     datasource = service.create_secure_datasource(

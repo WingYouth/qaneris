@@ -25,14 +25,14 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-from smartdata.application.service import SmartDataService
-from smartdata.cli import credentials as credential_cli
-from smartdata.cli import main as cli
-from smartdata.common.errors import (
+from qaneris.application.service import QanerisService
+from qaneris.cli import credentials as credential_cli
+from qaneris.cli import main as cli
+from qaneris.common.errors import (
     CredentialKindMismatchError,
     ManagedSecretNotFoundError,
 )
-from smartdata.contracts.credentials import (
+from qaneris.contracts.credentials import (
     CREDENTIAL_FILE_MAX_BYTES,
     ManagedSecretInfo,
     ManagedSecretKind,
@@ -58,7 +58,7 @@ def certificate(*, ca: bool, key: rsa.RSAPrivateKey | None = None) -> x509.Certi
     issuer = key or rsa.generate_private_key(public_exponent=65537, key_size=2048)
     now = dt.datetime.now(dt.UTC)
     name = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, "SmartData Test CA" if ca else "client")]
+        [x509.NameAttribute(NameOID.COMMON_NAME, "Qaneris Test CA" if ca else "client")]
     )
     builder = (
         x509.CertificateBuilder()
@@ -134,7 +134,7 @@ def installed(monkeypatch: pytest.MonkeyPatch, service: Any) -> Mock:
 
 
 def serving(monkeypatch: pytest.MonkeyPatch, **methods: Any) -> Any:
-    service = Mock(spec=SmartDataService, **methods)
+    service = Mock(spec=QanerisService, **methods)
     installed(monkeypatch, service)
     return service
 
@@ -444,7 +444,7 @@ def test_credential_delete_json_reports_the_id_only(
 def test_credential_delete_in_use_exits_one(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from smartdata.common.errors import ManagedSecretInUseError
+    from qaneris.common.errors import ManagedSecretInUseError
 
     serving(monkeypatch, delete_managed_secret=Mock(side_effect=ManagedSecretInUseError("used")))
 
@@ -853,7 +853,7 @@ def test_the_cli_reaches_nothing_but_the_application_service() -> None:
         "CertificateValidator",
         "SecretResolver",
         "Catalog(",
-        "SmartDataService(",
+        "QanerisService(",
     ):
         assert name not in source, name
     for method in (

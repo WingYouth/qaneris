@@ -1,6 +1,6 @@
 """Model gateway tests.
 
-The gateway owns SmartData's prompts, schema and failure semantics; aiyallm is only the
+The gateway owns Qaneris's prompts, schema and failure semantics; aiyallm is only the
 invocation infrastructure underneath. These tests therefore mock the **aiyallm boundary**
 (``client.chat``) rather than any transport detail, which is also why nothing here needs a
 network or a real credential.
@@ -15,9 +15,9 @@ from types import SimpleNamespace
 import pytest
 from aiyallm import NoAvailableProviderError, RateLimitError
 
-from smartdata.common.errors import ModelInvocationError, QueryPlanningError
-from smartdata.llm import gateway as gateway_module
-from smartdata.llm.gateway import AiyallmSchemaModel, build_chat_client
+from qaneris.common.errors import ModelInvocationError, QueryPlanningError
+from qaneris.llm import gateway as gateway_module
+from qaneris.llm.gateway import AiyallmSchemaModel, build_chat_client
 
 NAMESPACED_MODEL = "deepseek-ai/DeepSeek-V4-Pro-0813"
 
@@ -34,7 +34,7 @@ class FakeChatClient:
         self.calls.append({"messages": messages, "model": model, "temperature": temperature})
         if self.error is not None:
             raise self.error
-        return SimpleNamespace(content=self.reply, model=model, provider="smartdata")
+        return SimpleNamespace(content=self.reply, model=model, provider="qaneris")
 
 
 def model_with(
@@ -98,9 +98,9 @@ def test_model_planner_rejects_non_json_plan() -> None:
 
 def test_unconfigured_model_stays_unconfigured(monkeypatch) -> None:
     for name in (
-        "SMARTDATA_MODEL_BASE_URL",
-        "SMARTDATA_MODEL_API_KEY",
-        "SMARTDATA_MODEL_NAME",
+        "QANERIS_MODEL_BASE_URL",
+        "QANERIS_MODEL_API_KEY",
+        "QANERIS_MODEL_NAME",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -109,21 +109,21 @@ def test_unconfigured_model_stays_unconfigured(monkeypatch) -> None:
 
 @pytest.mark.parametrize(
     "missing",
-    ["SMARTDATA_MODEL_BASE_URL", "SMARTDATA_MODEL_API_KEY", "SMARTDATA_MODEL_NAME"],
+    ["QANERIS_MODEL_BASE_URL", "QANERIS_MODEL_API_KEY", "QANERIS_MODEL_NAME"],
 )
 def test_partial_configuration_is_still_unconfigured(monkeypatch, missing: str) -> None:
-    monkeypatch.setenv("SMARTDATA_MODEL_BASE_URL", "https://model.example/v1")
-    monkeypatch.setenv("SMARTDATA_MODEL_API_KEY", "key")
-    monkeypatch.setenv("SMARTDATA_MODEL_NAME", "model")
+    monkeypatch.setenv("QANERIS_MODEL_BASE_URL", "https://model.example/v1")
+    monkeypatch.setenv("QANERIS_MODEL_API_KEY", "key")
+    monkeypatch.setenv("QANERIS_MODEL_NAME", "model")
     monkeypatch.delenv(missing)
 
     assert AiyallmSchemaModel.from_environment() is None
 
 
 def test_configured_environment_builds_the_gateway(monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_MODEL_BASE_URL", "https://model.example/v1/")
-    monkeypatch.setenv("SMARTDATA_MODEL_API_KEY", "key")
-    monkeypatch.setenv("SMARTDATA_MODEL_NAME", NAMESPACED_MODEL)
+    monkeypatch.setenv("QANERIS_MODEL_BASE_URL", "https://model.example/v1/")
+    monkeypatch.setenv("QANERIS_MODEL_API_KEY", "key")
+    monkeypatch.setenv("QANERIS_MODEL_NAME", NAMESPACED_MODEL)
 
     model = AiyallmSchemaModel.from_environment()
 
@@ -148,8 +148,8 @@ def test_namespaced_model_id_is_not_split_into_provider_and_model() -> None:
     assert [target.model for target in targets] == [NAMESPACED_MODEL]
 
 
-def test_provider_failures_become_smartdata_errors() -> None:
-    failure = RateLimitError("smartdata rate limit reached: 429", provider="smartdata")
+def test_provider_failures_become_qaneris_errors() -> None:
+    failure = RateLimitError("qaneris rate limit reached: 429", provider="qaneris")
     model, _ = model_with(error=failure)
 
     with pytest.raises(ModelInvocationError, match="模型调用失败") as raised:
@@ -163,7 +163,7 @@ def test_provider_failures_become_smartdata_errors() -> None:
 def test_provider_error_detail_never_carries_the_api_key() -> None:
     secret = "sk-secret-value"
     failure = RateLimitError(
-        f"smartdata request failed: 401 invalid api key {secret}", provider="smartdata"
+        f"qaneris request failed: 401 invalid api key {secret}", provider="qaneris"
     )
     model = AiyallmSchemaModel(
         "https://model.example/v1", secret, "model", client=FakeChatClient(error=failure)
@@ -182,7 +182,7 @@ def test_nested_provider_reason_survives_the_boundary() -> None:
     The operator needs the reason — "insufficient balance", "invalid model" — not just
     "no provider succeeded".
     """
-    reason = RateLimitError("429 insufficient balance", provider="smartdata")
+    reason = RateLimitError("429 insufficient balance", provider="qaneris")
     failure = NoAvailableProviderError("No provider succeeded for 'auto'", errors=[reason])
     model, _ = model_with(error=failure)
 

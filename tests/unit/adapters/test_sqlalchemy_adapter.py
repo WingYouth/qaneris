@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.exc import ObjectNotExecutableError
 
-from smartdata.adapters.relational.sqlalchemy import SQLAlchemyAdapter
+from qaneris.adapters.relational.sqlalchemy import SQLAlchemyAdapter
 
 
 def test_clickhouse_connection_coerces_raw_sql_strings_for_sqlalchemy_2() -> None:

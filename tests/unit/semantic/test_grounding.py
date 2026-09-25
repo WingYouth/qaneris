@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from smartdata.contracts.semantic import (
+from qaneris.contracts.semantic import (
     BusinessFilter,
     BusinessQuery,
     RankingSpec,
     SemanticAssetType,
     SemanticCandidate,
 )
-from smartdata.semantic import (
+from qaneris.semantic import (
     GroundingResult,
     SemanticGrounder,
     SemanticRetrievalPath,

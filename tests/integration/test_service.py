@@ -1,9 +1,9 @@
 import sqlite3
 from pathlib import Path
 
-from smartdata.application.service import SmartDataService
-from smartdata.catalog import Catalog
-from smartdata.contracts import AskRequest, DatasourceCreate
+from qaneris.application.service import QanerisService
+from qaneris.catalog import Catalog
+from qaneris.contracts import AskRequest, DatasourceCreate
 
 
 def create_sales_db(path: Path) -> None:
@@ -25,7 +25,7 @@ def create_sales_db(path: Path) -> None:
 def test_scan_and_ask(tmp_path: Path) -> None:
     source_path = tmp_path / "sales.db"
     create_sales_db(source_path)
-    service = SmartDataService(Catalog(tmp_path / "catalog.db"))
+    service = QanerisService(Catalog(tmp_path / "catalog.db"))
     datasource = service.create_datasource(
         DatasourceCreate(
             name="sales",
@@ -90,7 +90,7 @@ def test_scan_and_ask(tmp_path: Path) -> None:
 def test_explicit_sql_is_still_validated(tmp_path: Path) -> None:
     source_path = tmp_path / "sales.db"
     create_sales_db(source_path)
-    service = SmartDataService(Catalog(tmp_path / "catalog.db"))
+    service = QanerisService(Catalog(tmp_path / "catalog.db"))
     datasource = service.create_datasource(
         DatasourceCreate(
             name="sales",

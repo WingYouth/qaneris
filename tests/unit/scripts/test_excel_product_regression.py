@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import json
 
-from smartdata.scripts.acceptance.cli_ask import (
+from qaneris.scripts.acceptance.cli_ask import (
     EXPECTED_STREAM_EVENTS,
     parse_jsonl,
     stream_order_violation,
 )
-from smartdata.scripts.acceptance.excel_product_regression import (
+from qaneris.scripts.acceptance.excel_product_regression import (
     BLOCKED,
     FAILED,
     PASSED,
@@ -261,8 +261,8 @@ def test_report_fails_closed_on_a_failing_stage() -> None:
 
 
 def test_redacted_removes_credential_environment_values(monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_NEO4J_PASSWORD", "super-secret-password")
-    monkeypatch.setenv("SMARTDATA_MODEL_API_KEY", "sk-live-model-key-value")
+    monkeypatch.setenv("QANERIS_NEO4J_PASSWORD", "super-secret-password")
+    monkeypatch.setenv("QANERIS_MODEL_API_KEY", "sk-live-model-key-value")
 
     text = redacted("bolt://neo4j:super-secret-password@host and sk-live-model-key-value")
 
@@ -272,6 +272,6 @@ def test_redacted_removes_credential_environment_values(monkeypatch) -> None:
 
 
 def test_redacted_leaves_ordinary_text_alone(monkeypatch) -> None:
-    monkeypatch.setenv("SMARTDATA_NEO4J_PASSWORD", "super-secret-password")
+    monkeypatch.setenv("QANERIS_NEO4J_PASSWORD", "super-secret-password")
 
     assert redacted("cli_import: passed") == "cli_import: passed"

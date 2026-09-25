@@ -1,4 +1,4 @@
-from smartdata.common.redaction import SecretRedactor
+from qaneris.common.redaction import SecretRedactor
 
 
 def test_redacts_values_and_credential_bearing_urls(monkeypatch) -> None:

@@ -1,7 +1,7 @@
 import pytest
 
-from smartdata.contracts import DatasetInfo, Datasource, FieldInfo
-from smartdata.querying.planning.simple_planner import plan_query, plan_sql
+from qaneris.contracts import DatasetInfo, Datasource, FieldInfo
+from qaneris.querying.planning.simple_planner import plan_query, plan_sql
 
 
 @pytest.fixture

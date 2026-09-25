@@ -23,11 +23,11 @@ from _grounded_fixtures import (
     sales_context,
 )
 
-import smartdata.querying.context as context_module
-import smartdata.querying.planning.grounded_planner as planner_module
-from smartdata.common.errors import QueryContextBuildError
-from smartdata.contracts.query import GroundedQueryContext, TimeRange, TimeSpec
-from smartdata.contracts.semantic import (
+import qaneris.querying.context as context_module
+import qaneris.querying.planning.grounded_planner as planner_module
+from qaneris.common.errors import QueryContextBuildError
+from qaneris.contracts.query import GroundedQueryContext, TimeRange, TimeSpec
+from qaneris.contracts.semantic import (
     AggregateFunction,
     BusinessFilter,
     BusinessQuery,
@@ -36,9 +36,9 @@ from smartdata.contracts.semantic import (
     RankingSpec,
     SemanticAssetType,
 )
-from smartdata.querying import QueryContextBuilder
-from smartdata.querying.planning.grounded_planner import GroundedQueryPlanner
-from smartdata.semantic.models import ClarificationOption, ClarificationRequest
+from qaneris.querying import QueryContextBuilder
+from qaneris.querying.planning.grounded_planner import GroundedQueryPlanner
+from qaneris.semantic.models import ClarificationOption, ClarificationRequest
 
 
 def test_context_carries_only_grounded_physical_identity() -> None:
@@ -434,12 +434,12 @@ def test_context_and_planner_modules_cannot_reach_io(module) -> None:
     """The modules must not be able to read a database, the graph, a profile or a model."""
     source = Path(module.__file__).read_text(encoding="utf-8")
     for forbidden in (
-        "smartdata.adapters",
-        "smartdata.graph",
-        "smartdata.catalog",
-        "smartdata.profiling",
-        "smartdata.llm",
-        "smartdata.scan",
+        "qaneris.adapters",
+        "qaneris.graph",
+        "qaneris.catalog",
+        "qaneris.profiling",
+        "qaneris.llm",
+        "qaneris.scan",
         "sqlite3",
         "neo4j",
         "GraphReader",
@@ -561,7 +561,7 @@ def test_raw_field_candidate_carries_owning_data_object_locator() -> None:
 
 def test_candidate_object_locator_ignores_empty_candidates() -> None:
     """A candidate with no locator never disqualifies the data object a richer candidate described."""
-    from smartdata.querying.context import _candidate_object_locator
+    from qaneris.querying.context import _candidate_object_locator
 
     rich = candidate(
         SemanticAssetType.DATA_OBJECT,
@@ -588,7 +588,7 @@ def test_candidate_object_locator_ignores_empty_candidates() -> None:
 
 def test_candidate_object_locator_rejects_multiple_different_populated_locators() -> None:
     """Two different populated locators for one data object fail closed."""
-    from smartdata.querying.context import _candidate_object_locator
+    from qaneris.querying.context import _candidate_object_locator
 
     public_orders = candidate(
         SemanticAssetType.DATA_OBJECT,
@@ -613,7 +613,7 @@ def test_candidate_object_locator_rejects_multiple_different_populated_locators(
 
 def test_candidate_object_locator_all_empty_returns_empty() -> None:
     """When every candidate is empty, the resolution records the compatibility state."""
-    from smartdata.querying.context import _candidate_object_locator
+    from qaneris.querying.context import _candidate_object_locator
 
     bare_a = candidate(
         SemanticAssetType.METRIC, "metric_bare_a", "A", data_object_id=ORDERS, field_path="a"
@@ -627,7 +627,7 @@ def test_candidate_object_locator_all_empty_returns_empty() -> None:
 
 def test_candidate_object_locator_is_order_independent() -> None:
     """Reversing the candidate list does not change the resolved locator."""
-    from smartdata.querying.context import _candidate_object_locator
+    from qaneris.querying.context import _candidate_object_locator
 
     rich = candidate(
         SemanticAssetType.DATA_OBJECT,
