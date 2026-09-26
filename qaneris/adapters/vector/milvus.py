@@ -28,6 +28,8 @@ class MilvusAdapter(DataSourceAdapter):
         client = MilvusClient(
             uri=self.connection.get("url", "http://localhost:19530"),
             token=self.connection.get("token"),
+            user=self.connection.get("username", ""),
+            password=self.connection.get("password", ""),
             db_name=self.connection.get("database", "default"),
             **tls_options,
         )

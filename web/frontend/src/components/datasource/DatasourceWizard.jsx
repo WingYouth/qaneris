@@ -3,23 +3,33 @@ import { createSecureDatasource, listAdapters, listTlsCapabilities, scanDatasour
 import { createTextCredential, uploadCaCertificate, uploadClientIdentity, deleteCredential } from "../../api/credentials.js";
 import { DriverPicker, driverName } from "./DriverPicker.jsx";
 
-const DEFAULT_PORTS = { postgresql: "5432", timescaledb: "5432", mysql: "3306", sqlserver: "1433", mongodb: "27017", redis: "6379", cassandra: "9042", neo4j: "7687", clickhouse: "8123", elasticsearch: "9200", opensearch: "9200" };
+const DEFAULT_PORTS = { postgresql: "5432", timescaledb: "5432", mysql: "3306", oracle: "1521", sqlserver: "1433", mongodb: "27017", redis: "6379", cassandra: "9042", hbase: "9090", neo4j: "7687", couchdb: "5984", influxdb: "8086", clickhouse: "8123", elasticsearch: "9200", opensearch: "9200", milvus: "19530", qdrant: "6333", weaviate: "8080" };
 const AUTH_OPTIONS = [
   ["password", "用户名和密码"], ["none", "无需认证"], ["token", "Token"],
   ["api_key", "API Key"], ["private_key", "已有私钥凭据"], ["service_account", "已有服务账号凭据"],
   ["cloud_identity", "云端身份"],
 ];
+const DRIVER_AUTH = {
+  sqlite: ["none"], postgresql: ["password", "none"], timescaledb: ["password", "none"],
+  mysql: ["password", "none"], oracle: ["password", "none"], sqlserver: ["password", "none"],
+  clickhouse: ["password", "none"], snowflake: ["password", "none"], bigquery: ["cloud_identity", "none"],
+  redis: ["password", "none"], mongodb: ["password", "none"], couchdb: ["password", "none"],
+  cassandra: ["password", "none"], hbase: ["none"], neo4j: ["password", "none"],
+  influxdb: ["token"], elasticsearch: ["password", "api_key", "none"], opensearch: ["password", "none"],
+  milvus: ["password", "token", "none"], qdrant: ["api_key", "none"], weaviate: ["api_key", "none"],
+};
 const MANAGED_TEXT_AUTH = new Set(["password", "token", "api_key"]);
 const HOST_ONLY = new Set(["cassandra", "hbase"]);
 const SPECIAL_ENDPOINT = new Set(["sqlite", "bigquery", "snowflake"]);
+const DATABASE_DRIVERS = new Set(["postgresql", "timescaledb", "mysql", "oracle", "sqlserver", "mongodb", "redis", "couchdb", "neo4j", "clickhouse", "milvus"]);
 
 const emptyForm = (workspaceId, existing) => ({
   name: existing?.name || "", workspace: existing?.workspace_id || workspaceId,
   driver: existing?.driver || "", mode: "local", locatorMode: "host",
   host: "", port: existing?.driver ? DEFAULT_PORTS[existing.driver] || "" : "",
-  path: "", url: "", database: "", namespace: "", project: "", account: "",
-  options: "{}", auth: "none", username: "", source: "create", secretId: "", rawSecret: "",
-  tls: false, tlsVersion: "1.2", serverName: "", caId: "", caFile: null,
+  path: "", url: "", database: "", namespace: "", project: "", account: "", org: "", bucket: "",
+  options: "{}", auth: existing?.driver === "influxdb" ? "token" : "none", username: "", source: "create", secretId: "", rawSecret: "",
+  tls: existing?.driver === "sqlserver", verifyServer: true, tlsVersion: "1.2", serverName: "", caId: "", caFile: null,
   certId: "", keyId: "", certFile: null, keyFile: null, keyPassword: "",
 });
 
@@ -44,7 +54,7 @@ function buildProfile(draft) {
   const authField = { password: "password", token: "token", api_key: "api_key", private_key: "private_key", service_account: "service_account" }[draft.auth];
   if (authField && draft.secretId.trim()) authentication[authField] = { provider: "managed", identifier: draft.secretId.trim() };
 
-  const tls = { enabled: draft.tls, verify_server: true, minimum_version: draft.tlsVersion };
+  const tls = { enabled: draft.tls, verify_server: draft.verifyServer, minimum_version: draft.tlsVersion };
   if (draft.tls) {
     if (draft.serverName.trim()) tls.server_name = draft.serverName.trim();
     if (draft.caId.trim()) tls.ca_certificate = { provider: "managed", identifier: draft.caId.trim() };
@@ -57,6 +67,10 @@ function buildProfile(draft) {
   try { options = JSON.parse(draft.options || "{}"); }
   catch { throw new Error("高级选项需要填写有效的 JSON 对象。"); }
   if (!options || Array.isArray(options) || typeof options !== "object") throw new Error("高级选项需要填写 JSON 对象。");
+  if (draft.driver === "influxdb") {
+    options.org = draft.org.trim();
+    options.bucket = draft.bucket.trim();
+  }
   return { driver: draft.driver, deployment_mode: draft.mode, endpoint, authentication, tls, options };
 }
 
@@ -67,6 +81,10 @@ function validateForm(form, capability, kind, existing) {
   if (form.driver === "sqlite" && !form.path.trim()) return "请填写服务器可访问的 SQLite 文件路径。";
   if (form.driver === "bigquery" && (!form.project.trim() || !form.namespace.trim())) return "请填写 Project 和 Dataset。";
   if (form.driver === "snowflake" && (!form.account.trim() || !form.database.trim() || !form.namespace.trim())) return "请填写 Account、Database 和 Schema。";
+  if (form.driver === "redis" && form.database.trim() && !/^\d+$/.test(form.database.trim())) return "Redis 数据库请填写非负整数编号，例如 0。";
+  if (form.driver === "oracle" && form.locatorMode === "host" && !form.database.trim()) return "请填写 Oracle Service Name。";
+  if (form.driver === "influxdb" && (!form.org.trim() || !form.bucket.trim())) return "请填写 InfluxDB Organization 和 Bucket。";
+  if (!(DRIVER_AUTH[form.driver] || ["none"]).includes(form.auth)) return "当前驱动不支持所选的认证方式。";
   if (!SPECIAL_ENDPOINT.has(form.driver)) {
     if (HOST_ONLY.has(form.driver) || form.locatorMode === "host") {
       if (!form.host.trim()) return "请填写主机地址。";
@@ -120,7 +138,8 @@ export function DatasourceWizard({ workspaceId = "default", onWorkspaceChange, e
     setForm((current) => ({
       ...emptyForm(current.workspace, null), name: current.name, workspace: current.workspace,
       driver, port: DEFAULT_PORTS[driver] || "",
-      auth: ["postgresql", "timescaledb", "mysql", "sqlserver"].includes(driver) ? "password" : "none",
+      tls: driver === "sqlserver",
+      auth: ["postgresql", "timescaledb", "mysql", "sqlserver"].includes(driver) ? "password" : driver === "influxdb" ? "token" : "none",
     }));
     setValidatedProfile(null);
     setTestResult(null);
@@ -234,9 +253,9 @@ export function DatasourceWizard({ workspaceId = "default", onWorkspaceChange, e
             <section className="connection-editor__section"><h2>服务器</h2>{!SPECIAL_ENDPOINT.has(form.driver) && !HOST_ONLY.has(form.driver) ? <div className="connection-editor__segment" role="group" aria-label="连接方式"><button type="button" className={form.locatorMode === "host" ? "is-active" : ""} aria-pressed={form.locatorMode === "host"} onClick={() => update("locatorMode", "host")}>Host + Port</button><button type="button" className={form.locatorMode === "url" ? "is-active" : ""} aria-pressed={form.locatorMode === "url"} onClick={() => update("locatorMode", "url")}>URL</button></div> : null}
               <div className="connection-editor__fields">{form.driver === "sqlite" ? textInput("path", "服务器可访问的 SQLite 路径", { placeholder: "/data/example.db" }) : form.driver === "bigquery" ? <>{textInput("project", "Project")}{textInput("namespace", "Dataset")}</> : form.driver === "snowflake" ? <>{textInput("account", "Account")}{textInput("database", "Database")}{textInput("namespace", "Schema")}</> : <>
                 {HOST_ONLY.has(form.driver) || form.locatorMode === "host" ? <div className="connection-editor__host">{textInput("host", "主机地址", { placeholder: "db.example.com" })}{textInput("port", "端口", { type: "number", placeholder: DEFAULT_PORTS[form.driver] || "" })}</div> : textInput("url", "连接 URL", { placeholder: "不含用户名与密码的连接地址" })}
-                {form.driver === "cassandra" ? textInput("namespace", "Keyspace", { hint: "连接由 Qaneris 后端发起。" }) : form.driver !== "hbase" ? textInput("database", "数据库", { hint: "连接由 Qaneris 后端发起；TLS 主机名须与证书匹配。" }) : null}
+                {form.driver === "cassandra" ? textInput("namespace", "Keyspace", { hint: "连接由 Qaneris 后端发起。" }) : form.driver === "influxdb" ? <>{textInput("org", "Organization")}{textInput("bucket", "Bucket")}</> : DATABASE_DRIVERS.has(form.driver) ? textInput("database", form.driver === "oracle" ? "Service Name" : "数据库", { hint: form.driver === "redis" ? "填写数字逻辑库编号，通常为 0；留空也使用 0。" : "连接由 Qaneris 后端发起；TLS 主机名须与证书匹配。" }) : null}
               </>}</div></section>
-            <section className="connection-editor__section"><h2>身份认证</h2><div className="connection-editor__fields"><Field label="认证方式"><select value={form.auth} onChange={(event) => update("auth", event.target.value)}>{AUTH_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+            <section className="connection-editor__section"><h2>身份认证</h2><div className="connection-editor__fields"><Field label="认证方式"><select value={form.auth} onChange={(event) => update("auth", event.target.value)}>{AUTH_OPTIONS.filter(([value]) => (DRIVER_AUTH[form.driver] || ["none"]).includes(value)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
               {form.auth === "password" ? textInput("username", "用户名", { autoComplete: "username" }) : null}
               {MANAGED_TEXT_AUTH.has(form.auth) ? <><div className="connection-editor__segment" role="group" aria-label="凭据来源"><button type="button" className={form.source === "create" ? "is-active" : ""} aria-pressed={form.source === "create"} onClick={() => update("source", "create")}>新建受管凭据</button><button type="button" className={form.source === "existing" ? "is-active" : ""} aria-pressed={form.source === "existing"} onClick={() => update("source", "existing")}>已有 Secret ID</button></div>{form.source === "create" ? textInput("rawSecret", form.auth === "password" ? "密码" : "凭据值", { type: "password", autoComplete: "new-password", hint: "凭据由后端加密保存，不会写入连接地址。" }) : textInput("secretId", "Secret ID", { hint: "使用已保存在受管凭据库中的凭据。" })}</> : null}
               {["private_key", "service_account"].includes(form.auth) ? textInput("secretId", "已有 Secret ID") : null}
@@ -245,7 +264,7 @@ export function DatasourceWizard({ workspaceId = "default", onWorkspaceChange, e
           {tab === "tls" ? <div className="connection-editor__layout"><div className="connection-editor__primary">{capability ? <><div className="connection-editor__tls-toggle"><div><h2>启用加密连接</h2><p>验证服务器证书和主机名，避免连接到错误的服务器。</p></div><label className="connection-switch"><input type="checkbox" checked={form.tls} onChange={(event) => update("tls", event.target.checked)} /><span /></label></div>{form.tls ? <>
             {capability.custom_ca ? <section className="connection-editor__section"><h2>服务器证书</h2><p className="connection-editor__hint">上传云服务商提供的 CA 证书。使用系统信任链时可留空。</p>{fileInput("caFile", "CA 证书", secretSummary(form.caId, form.caFile), ".pem,.crt,.cer")}</section> : null}
             {capability.mtls ? <section className="connection-editor__section"><h2>客户端身份 <small>可选</small></h2><p className="connection-editor__hint">仅在数据库要求双向 TLS 时填写；客户端证书和私钥必须成对上传。</p>{fileInput("certFile", "客户端证书", secretSummary(form.certId, form.certFile), ".pem,.crt,.cer")}{fileInput("keyFile", "客户端私钥", secretSummary(form.keyId, form.keyFile), ".pem,.key")}{textInput("keyPassword", "私钥解密密码", { type: "password", placeholder: "仅在私钥已加密时填写", autoComplete: "new-password" })}</section> : null}
-            <section className="connection-editor__section"><div className="connection-editor__tls-options">{capability.tls13_control ? <Field label="最低 TLS 版本"><select value={form.tlsVersion} onChange={(event) => update("tlsVersion", event.target.value)}><option value="1.2">TLS 1.2</option><option value="1.3">TLS 1.3</option></select></Field> : null}<Field label="服务器身份验证"><span className="connection-editor__readonly">严格验证</span></Field>{capability.server_name_override ? textInput("serverName", "证书服务器名称") : null}</div><details className="connection-editor__existing"><summary>使用已有证书 Secret ID</summary>{capability.custom_ca ? textInput("caId", "CA Secret ID") : null}{capability.mtls ? <>{textInput("certId", "客户端证书 Secret ID")}{textInput("keyId", "客户端私钥 Secret ID")}</> : null}</details></section>
+            <section className="connection-editor__section"><div className="connection-editor__tls-options">{capability.tls13_control ? <Field label="最低 TLS 版本"><select value={form.tlsVersion} onChange={(event) => update("tlsVersion", event.target.value)}><option value="1.2">TLS 1.2</option><option value="1.3">TLS 1.3</option></select></Field> : null}<Field label="服务器身份验证">{form.driver === "sqlserver" ? <select value={form.verifyServer ? "strict" : "trust"} onChange={(event) => update("verifyServer", event.target.value === "strict")}><option value="strict">严格验证（推荐）</option><option value="trust">信任自签名证书</option></select> : <span className="connection-editor__readonly">严格验证</span>}</Field>{capability.server_name_override && form.verifyServer ? textInput("serverName", "证书服务器名称") : null}</div>{form.driver === "sqlserver" && !form.verifyServer ? <p className="connection-editor__hint">连接仍会加密，但不验证服务器身份。仅在确认服务器地址可信时使用。</p> : null}<details className="connection-editor__existing"><summary>使用已有证书 Secret ID</summary>{capability.custom_ca ? textInput("caId", "CA Secret ID") : null}{capability.mtls ? <>{textInput("certId", "客户端证书 Secret ID")}{textInput("keyId", "客户端私钥 Secret ID")}</> : null}</details></section>
           </> : <p className="connection-editor__hint">打开后可配置该驱动支持的证书和 TLS 选项。</p>}</> : <div className="connection-editor__unsupported">当前驱动没有受管 TLS 配置。请检查驱动能力后选择其他连接方式。</div>}</div><aside className="connection-editor__aside"><span className="eyebrow">证书安全</span><h3>证书由后端保存</h3><p>上传文件进入受管凭据库。连接测试时临时读取，不向浏览器返回私钥内容。</p><p>上传前需配置凭据存储目录和主密钥；连接域名应与服务器证书匹配。</p></aside></div> : null}
           {tab === "advanced" ? <div className="connection-editor__layout"><div className="connection-editor__primary"><section className="connection-editor__section"><h2>其他连接字段</h2><div className="connection-editor__fields">{!["bigquery", "snowflake", "cassandra"].includes(form.driver) ? <>{textInput("namespace", "Namespace / Schema")}{textInput("project", "Project")}{textInput("account", "Account")}</> : <p className="connection-editor__hint">此驱动的必要字段已显示在“基本设置”。</p>}</div></section><section className="connection-editor__section"><h2>驱动选项</h2><Field label="高级选项 JSON" hint="仅在数据库驱动需要额外参数时填写。"><textarea rows={7} spellCheck={false} value={form.options} onChange={(event) => update("options", event.target.value)} /></Field></section></div><aside className="connection-editor__aside"><span className="eyebrow">高级设置</span><h3>保持配置可检查</h3><p>额外参数会随连接配置保存。连接测试成功后才能保存并扫描数据源。</p></aside></div> : null}
         </fieldset>

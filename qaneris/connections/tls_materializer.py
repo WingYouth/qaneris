@@ -467,6 +467,8 @@ class TLSMaterializer:
         directory: Path | None,
     ) -> dict[str, Any]:
         parameters: dict[str, Any] = {"secure": True}
+        if connection.endpoint.url:
+            parameters["url"] = _upgrade_scheme(connection.endpoint.url, "http", "https")
         if "ca_certificate" in material:
             parameters["ca_pem_path"] = str(Path(directory) / CA_FILE)  # type: ignore[arg-type]
         if "client_certificate" in material:

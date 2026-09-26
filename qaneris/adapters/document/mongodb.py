@@ -40,6 +40,23 @@ def assert_read_only_pipeline(pipeline: list[Any]) -> None:
 
 
 class MongoDBAdapter(DataSourceAdapter):
+    def _address(self) -> str | list[str]:
+        if self.connection.get("url"):
+            return str(self.connection["url"])
+
+        def host_address(host: str, port: int | None) -> str:
+            if ":" in host and not host.startswith("["):
+                host = f"[{host}]"
+            return f"{host}:{port}" if port is not None else host
+
+        hosts = self.connection.get("hosts")
+        if hosts:
+            return [host_address(item["host"], item.get("port")) for item in hosts]
+        if self.connection.get("host"):
+            return host_address(self.connection["host"], self.connection.get("port"))
+        # Preserve the legacy raw-connection default; secure profiles always have a locator.
+        return "mongodb://localhost:27017"
+
     def _database_name(self) -> str:
         database = self.connection.get("database")
         if not database:
@@ -77,7 +94,7 @@ class MongoDBAdapter(DataSourceAdapter):
                     self.connection.get("verify_server", True)
                 )
         return MongoClient(
-            self.connection.get("url", "mongodb://localhost:27017"),
+            self._address(),
             username=self.connection.get("username"),
             password=self.connection.get("password"),
             **options,

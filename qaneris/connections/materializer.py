@@ -1,9 +1,25 @@
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from qaneris.contracts.connection import HostPort, ResolvedConnection
+
+SQLSERVER_ODBC_DRIVER = "ODBC Driver 18 for SQL Server"
+HOST_URL_DRIVERS: dict[str, tuple[str, str, int]] = {
+    "couchdb": ("http", "https", 5984),
+    "influxdb": ("http", "https", 8086),
+    "milvus": ("http", "https", 19530),
+    "neo4j": ("bolt", "bolt", 7687),
+    "weaviate": ("http", "https", 8080),
+}
+
+
+def _sqlserver_query(query: str) -> str:
+    parameters = parse_qsl(query, keep_blank_values=True)
+    if not any(name == "driver" for name, _ in parameters):
+        parameters.append(("driver", SQLSERVER_ODBC_DRIVER))
+    return urlencode(parameters)
 
 
 def to_adapter_connection(connection: ResolvedConnection) -> dict[str, Any]:
@@ -28,6 +44,14 @@ def to_adapter_connection(connection: ResolvedConnection) -> dict[str, Any]:
         result["host"] = endpoint.hosts[0].host
         if endpoint.hosts[0].port is not None:
             result["port"] = endpoint.hosts[0].port
+        if connection.driver in HOST_URL_DRIVERS:
+            plain, secure, default_port = HOST_URL_DRIVERS[connection.driver]
+            host = endpoint.hosts[0].host
+            if ":" in host and not host.startswith("["):
+                host = f"[{host}]"
+            port = endpoint.hosts[0].port or default_port
+            scheme = secure if connection.tls_enabled else plain
+            result["url"] = f"{scheme}://{host}:{port}"
     if connection.username is not None:
         result["username"] = connection.username
     result.update(connection.secrets)
@@ -79,14 +103,19 @@ def sqlalchemy_url(connection: ResolvedConnection) -> str:
         scheme = schemes.get(connection.driver, parsed.scheme)
         host = parsed.hostname or ""
         netloc = _authenticated_netloc(connection, host, parsed.port)
-        return urlunsplit((scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+        query = _sqlserver_query(parsed.query) if connection.driver == "sqlserver" else parsed.query
+        return urlunsplit((scheme, netloc, parsed.path, query, parsed.fragment))
     if connection.driver == "bigquery":
         location = "/".join(filter(None, (endpoint.project, endpoint.namespace)))
         return f"bigquery://{location}"
     host = endpoint.hosts[0] if endpoint.hosts else HostPort(host=endpoint.account or "")
     netloc = _authenticated_netloc(connection, host.host, host.port)
+    if connection.driver == "oracle":
+        query = urlencode({"service_name": endpoint.database}) if endpoint.database else ""
+        return urlunsplit((schemes[connection.driver], netloc, "", query, ""))
     path = "/" + "/".join(filter(None, (endpoint.database, endpoint.namespace)))
-    return urlunsplit((schemes[connection.driver], netloc, path, "", ""))
+    query = _sqlserver_query("") if connection.driver == "sqlserver" else ""
+    return urlunsplit((schemes[connection.driver], netloc, path, query, ""))
 
 
 def _authenticated_netloc(connection: ResolvedConnection, host: str, port: int | None) -> str:

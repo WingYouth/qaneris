@@ -39,18 +39,22 @@ class CassandraAdapter(DataSourceAdapter):
             )
         # TLS parameters come from the materializer: a live SSLContext plus, only when an override
         # was explicitly configured, the SNI name Cassandra carries through ssl_options.
-        cluster = Cluster(
-            contact_points=self.connection.get("contact_points", ["127.0.0.1"]),
-            port=int(self.connection.get("port", 9042)),
-            auth_provider=auth,
-            ssl_context=self.connection.get("ssl_context"),
-            ssl_options=self.connection.get("ssl_options"),
-        )
-        session = cluster.connect(self._keyspace())
+        options: dict[str, Any] = {
+            "contact_points": self.connection.get("contact_points", ["127.0.0.1"]),
+            "port": int(self.connection.get("port", 9042)),
+            "auth_provider": auth,
+        }
+        for name in ("ssl_context", "ssl_options"):
+            if self.connection.get(name) is not None:
+                options[name] = self.connection[name]
+        cluster = Cluster(**options)
         try:
-            yield session
+            session = cluster.connect(self._keyspace())
+            try:
+                yield session
+            finally:
+                session.shutdown()
         finally:
-            session.shutdown()
             cluster.shutdown()
 
     def test_connection(self) -> None:

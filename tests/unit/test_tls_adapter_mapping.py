@@ -144,6 +144,26 @@ def _resolved(driver: str, **tls: Any):
     return resolved(driver, **tls)
 
 
+@pytest.mark.parametrize(
+    ("driver", "port", "plain", "secure"),
+    [
+        ("couchdb", 5984, "http", "https"),
+        ("influxdb", 8086, "http", "https"),
+        ("milvus", 19530, "http", "https"),
+        ("neo4j", 7687, "bolt", "bolt"),
+        ("weaviate", 8080, "http", "https"),
+    ],
+)
+def test_host_profiles_produce_driver_urls(driver, port, plain, secure) -> None:
+    from qaneris.connections.materializer import to_adapter_connection
+
+    for enabled, scheme in ((False, plain), (True, secure)):
+        connection = _resolved(
+            driver, hosts=[{"host": "2001:db8::1"}], tls_enabled=enabled
+        )
+        assert to_adapter_connection(connection)["url"] == f"{scheme}://[2001:db8::1]:{port}"
+
+
 def ca_pem() -> str:
     certificate, _ = ca_certificate()
     return pem(certificate)
@@ -190,13 +210,68 @@ def test_mysql_receives_an_ssl_context_in_connect_args() -> None:
     assert isinstance(connection["connect_args"]["ssl"], ssl.SSLContext)
 
 
+def test_oracle_host_connection_uses_a_service_name() -> None:
+    import oracledb
+    from sqlalchemy.dialects.oracle.oracledb import OracleDialect_oracledb
+    from sqlalchemy.engine import make_url
+
+    from qaneris.connections.materializer import to_adapter_connection
+
+    connection = _resolved(
+        "oracle", hosts=[{"host": "oracle.example.com", "port": 1521}], database="FREEPDB1"
+    )
+    url = to_adapter_connection(connection)["url"]
+    dialect = OracleDialect_oracledb()
+    dialect.dbapi = oracledb
+    _, kwargs = dialect.create_connect_args(make_url(url))
+
+    assert "service_name=FREEPDB1" in url
+    assert "HOST=oracle.example.com" in kwargs["dsn"]
+    assert "SERVICE_NAME=FREEPDB1" in kwargs["dsn"]
+
+
 def test_sqlserver_url_carries_encrypt_and_trust_settings() -> None:
     from urllib.parse import parse_qsl, urlsplit
 
     connection = materialized("sqlserver")
     query = dict(parse_qsl(urlsplit(connection["url"]).query))
+    assert query["driver"] == "ODBC Driver 18 for SQL Server"
     assert query["Encrypt"] == "yes"
     assert query["TrustServerCertificate"] == "no"
+
+
+def test_sqlserver_host_connection_selects_the_odbc_driver() -> None:
+    from sqlalchemy.dialects.mssql.pyodbc import MSDialect_pyodbc
+    from sqlalchemy.engine import make_url
+
+    from qaneris.connections.materializer import to_adapter_connection
+
+    connection = _resolved(
+        "sqlserver",
+        tls_enabled=False,
+        hosts=[{"host": "sql.example.com", "port": 1433}],
+        database="retail",
+    )
+    url = to_adapter_connection(connection)["url"]
+    args, _ = MSDialect_pyodbc().create_connect_args(make_url(url))
+
+    assert "DRIVER={ODBC Driver 18 for SQL Server}" in args[0]
+    assert "Server=sql.example.com,1433" in args[0]
+
+
+def test_sqlserver_url_preserves_an_explicit_odbc_driver() -> None:
+    from urllib.parse import parse_qsl, urlsplit
+
+    from qaneris.connections.materializer import sqlalchemy_url
+
+    connection = _resolved(
+        "sqlserver",
+        hosts=[],
+        url="mssql+pyodbc://sql.example.com:1433/retail?driver=ODBC+Driver+17+for+SQL+Server&app=qaneris",
+    )
+    query = dict(parse_qsl(urlsplit(sqlalchemy_url(connection)).query))
+
+    assert query == {"driver": "ODBC Driver 17 for SQL Server", "app": "qaneris"}
 
 
 def test_sqlserver_verification_off_sets_trust_server_certificate() -> None:
@@ -204,6 +279,7 @@ def test_sqlserver_verification_off_sets_trust_server_certificate() -> None:
 
     connection = materialized("sqlserver", verify_server=False)
     query = dict(parse_qsl(urlsplit(connection["url"]).query))
+    assert query["Encrypt"] == "yes"
     assert query["TrustServerCertificate"] == "yes"
 
 
@@ -249,6 +325,40 @@ def test_mongodb_adapter_forwards_tls_files(stub_driver_modules) -> None:
     assert kwargs["tls"] is True
     assert kwargs["tlsCAFile"].endswith("ca.pem")
     assert kwargs["tlsCertificateKeyFile"].endswith("client-combined.pem")
+
+
+def test_mongodb_adapter_uses_profile_hosts_instead_of_localhost(stub_driver_modules) -> None:
+    captured = Capture()
+    stub_driver_modules("pymongo", MongoClient=captured)
+    adapter = MongoDBAdapter(
+        "ds",
+        {
+            "driver": "mongodb",
+            "hosts": [{"host": "mongo.example.com", "port": 27018}],
+            "database": "company",
+            "tls": True,
+        },
+    )
+
+    with adapter._client():
+        pass
+
+    args, kwargs = captured.calls[-1]
+    assert args == (["mongo.example.com:27018"],)
+    assert kwargs["tls"] is True
+
+
+def test_mongodb_adapter_preserves_url_and_ipv6_hosts(stub_driver_modules) -> None:
+    captured = Capture()
+    stub_driver_modules("pymongo", MongoClient=captured)
+
+    with MongoDBAdapter("ds", {"url": "mongodb+srv://mongo.example.com"})._client():
+        pass
+    assert captured.calls[-1][0] == ("mongodb+srv://mongo.example.com",)
+
+    with MongoDBAdapter("ds", {"hosts": [{"host": "::1", "port": 27017}]})._client():
+        pass
+    assert captured.calls[-1][0] == (["[::1]:27017"],)
 
 
 def test_mongodb_combined_file_holds_the_key_then_the_certificate(monkeypatch, tmp_path) -> None:
@@ -427,6 +537,40 @@ def test_elasticsearch_adapter_passes_a_context_and_not_competing_parameters(mon
     assert "ca_certs" not in kwargs and "client_cert" not in kwargs
 
 
+def test_elasticsearch_host_profile_uses_its_https_address(monkeypatch) -> None:
+    captured = Capture()
+    monkeypatch.setattr("elasticsearch.Elasticsearch", captured, raising=False)
+    adapter = SearchAdapter(
+        "ds",
+        {
+            "driver": "elasticsearch",
+            "hosts": [{"host": "search.example.com", "port": 9243}],
+            "tls": True,
+            "ssl_context": ssl.create_default_context(),
+        },
+    )
+
+    with adapter._client():
+        pass
+
+    args, kwargs = captured.calls[-1]
+    assert args == ("https://search.example.com:9243",)
+    assert isinstance(kwargs["ssl_context"], ssl.SSLContext)
+
+
+def test_elasticsearch_tls_upgrades_http_url(monkeypatch) -> None:
+    captured = Capture()
+    monkeypatch.setattr("elasticsearch.Elasticsearch", captured, raising=False)
+    adapter = SearchAdapter(
+        "ds", {"driver": "elasticsearch", "url": "http://search.example.com:9243/base", "tls": True}
+    )
+
+    with adapter._client():
+        pass
+
+    assert captured.calls[-1][0] == ("https://search.example.com:9243/base",)
+
+
 def test_opensearch_adapter_passes_a_context_and_use_ssl(monkeypatch) -> None:
     captured = Capture()
     monkeypatch.setattr("opensearchpy.OpenSearch", captured, raising=False)
@@ -440,6 +584,26 @@ def test_opensearch_adapter_passes_a_context_and_use_ssl(monkeypatch) -> None:
     assert isinstance(kwargs["ssl_context"], ssl.SSLContext)
     assert kwargs["use_ssl"] is True
     assert kwargs["verify_certs"] is True
+
+
+def test_opensearch_host_profile_uses_its_addresses(monkeypatch) -> None:
+    captured = Capture()
+    monkeypatch.setattr("opensearchpy.OpenSearch", captured, raising=False)
+    adapter = SearchAdapter(
+        "ds",
+        {
+            "driver": "opensearch",
+            "hosts": [{"host": "search.example.com", "port": 9201}, {"host": "::1"}],
+            "tls": False,
+        },
+    )
+
+    with adapter._client():
+        pass
+
+    assert captured.calls[-1][1]["hosts"] == [
+        "http://search.example.com:9201", "http://[::1]:9200"
+    ]
 
 
 def test_influxdb_adapter_passes_ca_and_cert_files(monkeypatch) -> None:
@@ -483,6 +647,28 @@ def test_milvus_adapter_passes_pem_paths(monkeypatch) -> None:
     assert kwargs["server_name"] == "override.example"
 
 
+def test_milvus_adapter_forwards_password_auth(monkeypatch) -> None:
+    captured = Capture()
+    monkeypatch.setattr("pymilvus.MilvusClient", captured, raising=False)
+    adapter = MilvusAdapter(
+        "ds", {"url": "http://milvus.example.com:19530", "username": "reader", "password": "pw"}
+    )
+
+    with adapter._client():
+        pass
+
+    assert captured.kwargs["user"] == "reader"
+    assert captured.kwargs["password"] == "pw"
+
+
+def test_milvus_tls_upgrades_an_explicit_http_url() -> None:
+    from qaneris.connections.tls_materializer import TLSMaterializer
+
+    connection = _resolved("milvus", hosts=[], url="http://milvus.example.com:19530")
+    with TLSMaterializer().materialize(connection) as parameters:
+        assert parameters["url"] == "https://milvus.example.com:19530"
+
+
 def test_qdrant_adapter_only_sets_https(stub_driver_modules) -> None:
     """Qdrant is system-trust-only: no context, no CA and no process-global trust mutation."""
     captured = Capture()
@@ -498,6 +684,24 @@ def test_qdrant_adapter_only_sets_https(stub_driver_modules) -> None:
     assert kwargs["url"].startswith("https://")
     assert "ssl_context" not in kwargs
     assert "ca_certs" not in kwargs
+
+
+def test_qdrant_host_profile_forwards_verification(stub_driver_modules) -> None:
+    captured = Capture()
+    stub_driver_modules("qdrant_client", QdrantClient=captured)
+    adapter = QdrantAdapter(
+        "ds", {"host": "qdrant.example.com", "port": 6334, "https": True, "verify": False}
+    )
+
+    with adapter._client():
+        pass
+
+    kwargs = captured.calls[-1][1]
+    assert kwargs["host"] == "qdrant.example.com"
+    assert kwargs["port"] == 6334
+    assert kwargs["https"] is True
+    assert kwargs["verify"] is False
+    assert "url" not in kwargs
 
 
 @pytest.mark.parametrize("driver", ["qdrant"])

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from qaneris.adapters.base import DataSourceAdapter
 from qaneris.adapters.native_query import bounded_limit, parse_query_payload
@@ -15,6 +16,32 @@ from qaneris.contracts import DatasetInfo, DatasetSample, FieldInfo, NormalizedR
 class SearchAdapter(DataSourceAdapter):
     def _driver(self) -> str:
         return str(self.connection.get("driver", ""))
+
+    def _addresses(self) -> list[str]:
+        if self.connection.get("url"):
+            url = str(self.connection["url"])
+            if (self.connection.get("tls") or self.connection.get("use_ssl")) and url.startswith("http://"):
+                parsed = urlsplit(url)
+                url = urlunsplit(parsed._replace(scheme="https"))
+            return [url]
+
+        hosts = self.connection.get("hosts")
+        if not hosts:
+            hosts = [
+                {
+                    "host": self.connection.get("host", "localhost"),
+                    "port": self.connection.get("port", 9200),
+                }
+            ]
+        scheme = "https" if self.connection.get("tls") or self.connection.get("use_ssl") else "http"
+        addresses = []
+        for item in hosts:
+            host = str(item["host"])
+            if ":" in host and not host.startswith("["):
+                host = f"[{host}]"
+            port = item.get("port") or 9200
+            addresses.append(f"{scheme}://{host}:{port}")
+        return addresses
 
     @contextmanager
     def _client(self) -> Iterator[Any]:
@@ -27,13 +54,14 @@ class SearchAdapter(DataSourceAdapter):
             if driver == "elasticsearch":
                 from elasticsearch import Elasticsearch
 
+                addresses = self._addresses()
                 tls_options: dict[str, Any] = {}
                 if ssl_context is not None:
                     tls_options["ssl_context"] = ssl_context
                 else:
                     tls_options["verify_certs"] = bool(self.connection.get("verify_certs", True))
                 client = Elasticsearch(
-                    self.connection.get("url", "http://localhost:9200"),
+                    addresses[0] if len(addresses) == 1 else addresses,
                     basic_auth=self._auth(),
                     api_key=self.connection.get("api_key"),
                     **tls_options,
@@ -47,7 +75,7 @@ class SearchAdapter(DataSourceAdapter):
                 if self.connection.get("use_ssl") is not None:
                     tls_options["use_ssl"] = bool(self.connection["use_ssl"])
                 client = OpenSearch(
-                    hosts=[self.connection.get("url", "http://localhost:9200")],
+                    hosts=self._addresses(),
                     http_auth=self._auth(),
                     **tls_options,
                 )

@@ -23,12 +23,11 @@ class QdrantAdapter(DataSourceAdapter):
         # has already refused those requests, and normalizes the URL to https when TLS is on, so
         # nothing here relies on a process-global trust override.
         options = {
-            "url": self.connection.get("url"),
-            "host": self.connection.get("host"),
-            "port": self.connection.get("port"),
-            "api_key": self.connection.get("api_key"),
-            "timeout": float(self.connection.get("timeout", 10)),
+            name: self.connection[name]
+            for name in ("url", "host", "port", "api_key", "verify")
+            if self.connection.get(name) is not None
         }
+        options["timeout"] = float(self.connection.get("timeout", 10))
         if self.connection.get("https"):
             options["https"] = True
         client = QdrantClient(**options)

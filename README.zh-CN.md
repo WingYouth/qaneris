@@ -51,11 +51,11 @@ python3 setup.py --no-install-docker   # 不自动安装 Docker
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[sql,neo4j]'
+.venv/bin/python -m pip install -e '.[sql,redis,mongodb,cassandra,hbase,neo4j,influxdb,search,milvus,qdrant]'
 ./start-web.sh
 ```
 
-脚本读取仓库根目录的 `.env`（如果存在），在 `127.0.0.1:8000` 启动 FastAPI、在 `127.0.0.1:5173` 启动 Vite，并打开浏览器。也可以运行 `./start-web.sh --no-open`。按 Ctrl+C 停止脚本启动的进程；如果端口已有服务，脚本会复用。使用其他驱动时，还需安装 `pyproject.toml` 中相应的可选依赖。
+脚本读取仓库根目录的 `.env`（如果存在），在 `127.0.0.1:8000` 启动 FastAPI、在 `127.0.0.1:5173` 启动 Vite，并打开浏览器。也可以运行 `./start-web.sh --no-open`。按 Ctrl+C 停止脚本启动的进程；如果端口已有服务，脚本会复用。上述安装命令已包含页面支持的数据库驱动；在本机连接 SQL Server 还需要系统安装 ODBC Driver 18 for SQL Server。
 
 页面可打开不代表问数链路已就绪。自然语言问数需要可用的模型和 Neo4j；扫描和 Excel 导入也依赖对应的运行环境。可以用 `qaneris doctor` 检查配置。
 

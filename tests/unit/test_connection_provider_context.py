@@ -129,6 +129,21 @@ def test_a_tls_disabled_profile_yields_no_tls_parameters(tmp_path: Path) -> None
         assert connection["tls"] is False
 
 
+def test_sqlserver_self_signed_option_keeps_encryption_enabled() -> None:
+    from urllib.parse import parse_qsl, urlsplit
+
+    profile = ConnectionProfile(
+        driver="sqlserver",
+        endpoint=ConnectionEndpoint(hosts=[{"host": "sql.example.com", "port": 1433}]),
+        tls=TLSConfig(enabled=True, verify_server=False),
+    )
+
+    with DatasourceConnectionProvider(None).open_profile(profile) as connection:
+        parameters = dict(parse_qsl(urlsplit(connection["url"]).query))
+        assert parameters["Encrypt"] == "yes"
+        assert parameters["TrustServerCertificate"] == "yes"
+
+
 # ----------------------------------------------------------------------------------------------
 # get() compatibility
 # ----------------------------------------------------------------------------------------------
