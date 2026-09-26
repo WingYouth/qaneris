@@ -1,0 +1,245 @@
+{
+  "assets": [
+    {
+      "asset_id": "demo.order.metric.total_amount",
+      "kind": "metric",
+      "name": "订单总金额",
+      "aliases": [
+        "订单金额",
+        "销售总额",
+        "订单总额",
+        "总金额",
+        "金额",
+        "总额"
+      ],
+      "description": "orders.total_amount 的金额合计",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/metric/total-amount",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "orders",
+      "field_path": "total_amount",
+      "default_aggregation": "sum"
+    },
+    {
+      "asset_id": "demo.order.metric.count",
+      "kind": "metric",
+      "name": "订单数",
+      "aliases": [
+        "订单数量",
+        "订单量",
+        "总记录数",
+        "订单笔数",
+        "记录数"
+      ],
+      "description": "orders 表的记录条数",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/metric/order-count",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "orders",
+      "field_path": "id",
+      "default_aggregation": "count"
+    },
+    {
+      "asset_id": "demo.order.dimension.status",
+      "kind": "dimension",
+      "name": "订单状态",
+      "aliases": [
+        "状态"
+      ],
+      "description": "orders.status，取值 completed / pending / cancelled",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/dimension/status",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "orders",
+      "field_path": "status"
+    },
+    {
+      "asset_id": "demo.order.dimension.order_date",
+      "kind": "dimension",
+      "name": "下单日期",
+      "aliases": [
+        "订单日期",
+        "日期"
+      ],
+      "description": "orders.order_date，业务时间轴",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/dimension/order-date",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "orders",
+      "field_path": "order_date",
+      "time_axis": true
+    },
+    {
+      "asset_id": "demo.order.dimension.order_no",
+      "kind": "dimension",
+      "name": "订单编号",
+      "aliases": [
+        "订单号"
+      ],
+      "description": "orders.order_no",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/dimension/order-no",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "orders",
+      "field_path": "order_no"
+    },
+    {
+      "asset_id": "demo.customer.dimension.region",
+      "kind": "dimension",
+      "name": "客户地区",
+      "aliases": [
+        "地区",
+        "区域"
+      ],
+      "description": "customers.region",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/dimension/region",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "customers",
+      "field_path": "region"
+    },
+    {
+      "asset_id": "demo.customer.dimension.name",
+      "kind": "dimension",
+      "name": "客户名称",
+      "aliases": [
+        "客户"
+      ],
+      "description": "customers.name",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/dimension/customer-name",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "customers",
+      "field_path": "name"
+    },
+    {
+      "asset_id": "demo.product.dimension.category",
+      "kind": "dimension",
+      "name": "商品分类",
+      "aliases": [
+        "分类",
+        "品类"
+      ],
+      "description": "products.category",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/dimension/category",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "products",
+      "field_path": "category"
+    },
+    {
+      "asset_id": "demo.product.dimension.name",
+      "kind": "dimension",
+      "name": "商品名称",
+      "aliases": [
+        "商品",
+        "产品"
+      ],
+      "description": "products.name",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/dimension/product-name",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "products",
+      "field_path": "name"
+    },
+    {
+      "asset_id": "demo.item.metric.line_amount",
+      "kind": "metric",
+      "name": "明细金额",
+      "aliases": [
+        "行金额",
+        "销售额"
+      ],
+      "description": "order_items.line_amount 的金额合计，用于按商品或分类汇总销售额",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/metric/line-amount",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "order_items",
+      "field_path": "line_amount",
+      "default_aggregation": "sum"
+    },
+    {
+      "asset_id": "demo.item.dimension.quantity",
+      "kind": "metric",
+      "name": "商品销量",
+      "aliases": [
+        "销量",
+        "数量"
+      ],
+      "description": "order_items.quantity 的合计，用于商品销量排名",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/metric/quantity",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "order_items",
+      "field_path": "quantity",
+      "default_aggregation": "sum"
+    },
+    {
+      "asset_id": "demo.entity.order",
+      "kind": "business_term",
+      "name": "订单",
+      "aliases": [
+        "orders"
+      ],
+      "description": "orders 表所代表的订单业务实体",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/entity/order",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "orders"
+    },
+    {
+      "asset_id": "demo.entity.customer",
+      "kind": "business_term",
+      "name": "客户",
+      "aliases": [
+        "customers"
+      ],
+      "description": "customers 表所代表的客户业务实体",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/entity/customer",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "customers"
+    },
+    {
+      "asset_id": "demo.entity.product",
+      "kind": "business_term",
+      "name": "商品",
+      "aliases": [
+        "products"
+      ],
+      "description": "products 表所代表的商品业务实体",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/entity/product",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "products"
+    },
+    {
+      "asset_id": "demo.entity.order_item",
+      "kind": "business_term",
+      "name": "订单明细",
+      "aliases": [
+        "order_items"
+      ],
+      "description": "order_items 表所代表的订单明细业务实体",
+      "source": "administrator",
+      "source_ref": "demo://sales-2026-07/entity/order-item",
+      "status": "published",
+      "datasource_name": "sales-2026-07",
+      "data_object_name": "order_items"
+    }
+  ]
+}

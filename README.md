@@ -40,10 +40,12 @@ qaneris shell
 
 An inline TUI: the banner and a persistent status line are drawn by the terminal UI, while each command's own output stays in the terminal's normal scrollback, so it can be scrolled, copied and searched as usual. Every line is handed to the same entry point the one-shot commands use, so output, exit codes and error rules are identical.
 
-- Session builtins are `exit` / `quit` / `help` / `clear`, honoured only when the word is not a registered command, so they never shadow the command tree.
+- Session builtins are `exit` / `quit` / `help` / `clear` (with `?` as an alias for `help`), honoured only when the word is not a registered command, so they never shadow the command tree.
+- A leading `qaneris` is stripped from each line, so a command copied from a README (`qaneris source list`) works unchanged; typing the program name alone prints the help text. Typing `shell` inside the session prints `shell`'s help instead of nesting a second session.
 - A command's exit code is shown on the status line and is **not** the session's exit code; a session that ends normally returns 0.
 - Ctrl-C cancels the current input line without ending the session; Ctrl-D exits.
 - A non-terminal stdin is always refused (exit code 2), so a script cannot enter an interactive session by accident.
+- The banner adapts to the terminal width (sections sit side by side when they fit, and stack when they do not), and the status line colours a command's exit code by meaning: green for 0, red for 1 or 2.
 - Command history is written to `.tools/shell_history` (directory 0700 / file 0600, already git-ignored); disable it with `--no-history` or move it with `--history FILE`.
 
 ```bash
