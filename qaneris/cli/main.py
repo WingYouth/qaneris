@@ -245,8 +245,40 @@ def _print_error(args: argparse.Namespace, status: str, error: Exception) -> Non
     print(f"{status.replace('_', ' ').title()}: {message}", file=sys.stderr)
 
 
+def _opens_session(arguments: Sequence[str]) -> bool:
+    """Report whether an invocation asks for the interactive session.
+
+    ``qaneris`` on its own opens the session instead of failing as an argparse usage error, and an
+    invocation that leads with a session option (``--no-banner``, ``--history``, ...) opens it with
+    those options, so ``qaneris --no-banner`` and ``qaneris shell --no-banner`` agree.
+
+    Two shapes deliberately keep the one-shot entry point: ``--help``, which is the only place the
+    whole command tree is listed, and any invocation that names a real command, including one that
+    reached it through the global ``--env-file``.
+    """
+    if not arguments:
+        return True
+    if not arguments[0].startswith("-"):
+        return False
+    if any(token in ("-h", "--help") for token in arguments):
+        return False
+    from qaneris.cli.shell import registered_commands
+
+    commands = registered_commands()
+    return not any(token in commands for token in arguments)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    arguments = list(argv if argv is not None else sys.argv[1:])
+    if _opens_session(arguments):
+        # ``qaneris shell`` already owns the session's options and its own help, so the bare form
+        # is routed through it rather than restating the option set here. It parses this same list
+        # once more with the command name prepended, which is why no option is inspected above.
+        from qaneris.cli.shell import main as open_session
+
+        return open_session(arguments)
+
+    args = build_parser().parse_args(arguments)
     try:
         load_runtime_environment(args.env_file)
         if args.command == "doctor":

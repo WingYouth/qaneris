@@ -552,3 +552,59 @@ def test_the_standalone_entry_point_accepts_a_trailing_env_file(
 
     assert shell_cli.main(["--no-banner", "--env-file", str(env_file)]) == 0
     assert dispatch.call_args.args[0].env_file == env_file
+
+
+# --------------------------------------------------------------------------------------------
+# bare invocation
+# --------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("arguments", [[], ["--no-banner"], ["--history", "h"], ["--no-history"]])
+def test_a_command_less_invocation_opens_the_session(arguments) -> None:
+    """``qaneris`` on its own is the session, not an argparse usage error.
+
+    This is the documented entry point, so it must not depend on which of the two installed
+    ``qaneris`` scripts PATH resolves to.
+    """
+    assert cli._opens_session(arguments) is True
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [["--help"], ["-h"], ["doctor"], ["ask", "总销售额"], ["bogus"], ["--env-file", "f", "doctor"]],
+)
+def test_every_other_invocation_keeps_the_one_shot_entry_point(arguments) -> None:
+    """A named command, and the help that lists them, still reach the one-shot parser.
+
+    ``--help`` matters most: it is the only place the whole command tree is printed, so routing it
+    into the session would hide every command from the person asking what exists.
+    """
+    assert cli._opens_session(arguments) is False
+
+
+def test_a_bare_invocation_reaches_the_session(monkeypatch) -> None:
+    """The routing decision is only useful if ``main`` acts on it before parsing."""
+    dispatch = Mock(return_value=0)
+    monkeypatch.setattr(shell_cli, "main", dispatch)
+    monkeypatch.setattr(cli, "load_runtime_environment", Mock())
+
+    assert cli.main([]) == 0
+    dispatch.assert_called_once_with([])
+
+
+def test_an_unknown_command_still_fails_as_a_usage_error(monkeypatch) -> None:
+    """The convenience must not swallow a typo into a session that then reports it as a command."""
+    monkeypatch.setattr(cli, "load_runtime_environment", Mock())
+
+    with pytest.raises(SystemExit) as raised:
+        cli.main(["bogus"])
+
+    assert raised.value.code == 2
+
+
+def test_the_one_shot_parser_still_requires_a_command() -> None:
+    """``build_parser`` stays strict; only the entry point gains the convenience."""
+    with pytest.raises(SystemExit) as raised:
+        cli.build_parser().parse_args([])
+
+    assert raised.value.code == 2

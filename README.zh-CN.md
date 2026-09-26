@@ -99,6 +99,7 @@ python3 -m venv .venv
 ### 交互式会话
 
 ```bash
+qaneris            # 等价写法：不带子命令直接进入会话
 qaneris shell
 ```
 
@@ -113,9 +114,16 @@ inline TUI：横幅与常驻状态行由终端 UI 绘制，命令输出留在终
 - 命令历史写入 `.tools/shell_history`（目录 0700 / 文件 0600，已被 Git 忽略）；`--no-history` 关闭，`--history FILE` 改路径。
 
 ```bash
-qaneris shell --no-banner        # 跳过欢迎面板
-qaneris shell --no-history       # 不读写历史
-qaneris shell --history ~/.qaneris_history
+qaneris --no-banner              # 跳过欢迎面板
+qaneris --no-history             # 不读写历史
+qaneris --history ~/.qaneris_history
+```
+
+只输入 `qaneris` 会直接进入会话，而不是打印用法错误；只带会话选项时同理。因此下面两种写法等价。带具体命令、以及 `--help`，仍然走一次性入口。
+
+```bash
+qaneris            # 进入会话
+qaneris shell      # 进入同一个会话
 ```
 
 ### 命令一览
@@ -148,6 +156,7 @@ qaneris certificate delete SECRET_ID [--json]
 qaneris acceptance phase1 [--question-class {A,B,C,D,E,F}] [--repeat N] [--no-trace] [--json]
 qaneris acceptance ask --suite phase1 [...同上]
 
+qaneris [--history FILE | --no-history] [--no-banner]   # 不带子命令：直接进入会话
 qaneris shell [--history FILE | --no-history] [--no-banner]
 ```
 

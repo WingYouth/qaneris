@@ -16,7 +16,10 @@ const rememberSelection = (id) => {
 };
 const requestId = () => globalThis.crypto?.randomUUID?.() || `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-export function ConversationWorkspace({ workspaceId, datasources, backendAvailable, suggestedScope = "" }) {
+export function ConversationWorkspace({
+  workspaceId, datasources, backendAvailable, suggestedScope = "",
+  drivers = [], query = "", onWorkspaceChange, onAddDatasource, onOpenGovernance,
+}) {
   const [list, setList] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [state, dispatch] = useReducer(conversationReducer, undefined, initialConversationState);
@@ -151,20 +154,26 @@ export function ConversationWorkspace({ workspaceId, datasources, backendAvailab
   const latest = latestRunId(state.messages);
   const active = state.runs[latest];
   const inputDisabled = !backendAvailable || busy || (active && RUN_BUSY.has(active.status));
-  const ready = datasources.filter((item) => item.status === "ready");
   return <section className="conversation-workspace" aria-label="对话问数">
     <ConversationSidebar conversations={list} selectedId={selectedId} onSelect={selectConversation}
-      onCreate={newConversation} creating={creating} disabled={!backendAvailable} ready={ready} scope={scope} onScopeChange={setScope} />
+      onCreate={newConversation} creating={creating} disabled={!backendAvailable}
+      datasources={datasources} scope={scope} onScopeChange={setScope} drivers={drivers}
+      query={query} workspaceId={workspaceId} onWorkspaceChange={onWorkspaceChange} onAddDatasource={onAddDatasource} />
     <div className="conversation-main">
-      <header className="conversation-header"><div><span className="step-label">CONVERSATION</span><h2>{conversationTitle(state.conversation, state.messages)}</h2>
-        <small>{state.conversation ? (state.conversation.datasource_scope.length ? `${state.conversation.datasource_scope.length} 个指定数据源` : "工作区自动选择") : "选择或创建对话"}</small></div>
-        <button className="secondary-button" type="button" onClick={() => selectedId && refreshDetail(selectedId).catch(setError)} disabled={!selectedId}>刷新</button>
+      <header className="conversation-header">
+        <div><h2>{conversationTitle(state.conversation, state.messages)}</h2>
+          <small>{state.conversation ? (state.conversation.datasource_scope.length ? `${state.conversation.datasource_scope.length} 个指定数据源` : "工作区自动选择") : "选择或创建对话"}</small></div>
+        <button className="icon-button" type="button" title="刷新本轮结果" aria-label="刷新" onClick={() => selectedId && refreshDetail(selectedId).catch(setError)} disabled={!selectedId}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M20 11.5a8 8 0 1 0-2.6 6.3M20 5.5v6h-6" />
+          </svg>
+        </button>
       </header>
       {error ? <p className="conversation-error" role="alert">{error.message || "请求失败"}</p> : null}
       {streamError ? <p className="conversation-error" role="alert">事件连接中断：{streamError.message} <button type="button" onClick={() => setObserveVersion((n) => n + 1)}>重新连接</button></p> : null}
       <MessageList messages={state.messages} runs={state.runs} events={state.events} latestRunId={latest}
         onLoadRun={loadRun} onAction={act} busy={busy}
-        canRescan={state.conversation?.datasource_scope?.length === 1} />
+        canRescan={state.conversation?.datasource_scope?.length === 1} onOpenGovernance={onOpenGovernance} />
       <MessageComposer value={draft} onChange={(next) => { setDraft(next); if (pending.current?.question !== next.trim()) pending.current = null; }} onSend={send}
         disabled={inputDisabled || !selectedId} hint={!backendAvailable ? "后端不可用，暂不能发送新问题" : active && RUN_BUSY.has(active.status) ? "当前问题处理中" : !selectedId ? "请先创建对话" : "Enter 发送 · Shift+Enter 换行"} />
     </div>
