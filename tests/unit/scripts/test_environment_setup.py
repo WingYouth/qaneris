@@ -23,6 +23,7 @@ from tools.environment_setup import (
     BLOCKED,
     DEFAULT_EXTRAS,
     FIXED,
+    FRONTEND_URL,
     OK,
     PROJECT_ROOT,
     SKIPPED,
@@ -48,8 +49,147 @@ from tools.environment_setup import (
     generate_password,
     main,
     node_version_supported,
+    open_workspace,
     unknown_extras,
 )
+
+# ---------------------------------------------------------------------------------------------
+# reachability of the workspace
+# ---------------------------------------------------------------------------------------------
+
+
+def test_the_frontend_url_points_at_the_vite_port() -> None:
+    assert FRONTEND_URL == "http://127.0.0.1:5173/"
+
+
+def test_docker_daemon_autostart_is_a_default_that_can_be_refused() -> None:
+    """A single run should be enough, so launching the daemon is the default."""
+    assert Context().start_docker is True
+    assert Context().open_browser is True
+
+
+def test_a_stopped_daemon_is_left_alone_under_no_start_docker(monkeypatch) -> None:
+    monkeypatch.setattr("tools.environment_setup._docker_daemon_ready", lambda ctx: None)
+    monkeypatch.setattr(
+        "tools.environment_setup._start_docker_desktop",
+        lambda ctx: pytest.fail("must not launch Docker under --no-start-docker"),
+    )
+    ctx = Context(environment={}, dry_run=False, start_docker=False)
+    ctx.docker = "/usr/local/bin/docker"
+
+    result = check_docker(ctx)
+
+    assert result.status == BLOCKED
+    assert "--no-start-docker" in result.detail
+
+
+def test_a_stopped_daemon_is_launched_and_reported_as_fixed(monkeypatch) -> None:
+    """The first run on a machine with a closed Docker Desktop must still finish the job."""
+    attempts = {"count": 0}
+
+    def daemon(_ctx):
+        attempts["count"] += 1
+        return "29.1.3" if attempts["count"] > 1 else None
+
+    monkeypatch.setattr("tools.environment_setup._docker_daemon_ready", daemon)
+    monkeypatch.setattr("tools.environment_setup._start_docker_desktop", lambda ctx: None)
+    ctx = Context(environment={}, dry_run=False, start_docker=True)
+    ctx.docker = "/usr/local/bin/docker"
+    ctx.compose = ctx.docker
+    ctx.compose_version = "2.40.3"
+
+    result = check_docker(ctx)
+
+    assert result.status == FIXED
+    assert "已启动 Docker Desktop" in result.detail
+
+
+def test_a_daemon_that_never_answers_is_reported_not_retried_forever(monkeypatch) -> None:
+    monkeypatch.setattr("tools.environment_setup._docker_daemon_ready", lambda ctx: None)
+    monkeypatch.setattr(
+        "tools.environment_setup._start_docker_desktop", lambda ctx: "许可确认未完成"
+    )
+    ctx = Context(environment={}, dry_run=False, start_docker=True)
+    ctx.docker = "/usr/local/bin/docker"
+
+    result = check_docker(ctx)
+
+    assert result.status == BLOCKED
+    assert "许可确认未完成" in result.fix
+
+
+def test_the_browser_is_opened_only_when_the_frontend_answers(monkeypatch) -> None:
+    monkeypatch.setattr("tools.environment_setup._http_ok", lambda url, **kw: False)
+    monkeypatch.setattr(
+        "tools.environment_setup._open_workspace_browser",
+        lambda: pytest.fail("must not open a browser for a workspace that is not serving"),
+    )
+
+    result = open_workspace(Context(environment={}, open_browser=True))
+
+    assert result.status == SKIPPED
+
+
+def test_the_browser_is_opened_once_the_frontend_answers(monkeypatch) -> None:
+    monkeypatch.setattr("tools.environment_setup._http_ok", lambda url, **kw: True)
+    monkeypatch.setattr("tools.environment_setup._open_workspace_browser", lambda: None)
+
+    result = open_workspace(Context(environment={}, open_browser=True))
+
+    assert result.status == FIXED
+    assert FRONTEND_URL in result.detail
+
+
+def test_a_missing_browser_is_not_treated_as_a_broken_install(monkeypatch) -> None:
+    """A headless host has no launcher; the URL is printed either way, so this is not a failure."""
+    monkeypatch.setattr("tools.environment_setup._http_ok", lambda url, **kw: True)
+    monkeypatch.setattr(
+        "tools.environment_setup._open_workspace_browser", lambda: "没有可用的浏览器启动器"
+    )
+
+    result = open_workspace(Context(environment={}, open_browser=True))
+
+    assert result.status == SKIPPED
+    assert result.failed is False
+
+
+def test_the_browser_launcher_is_chosen_from_a_case_folded_platform_name(monkeypatch) -> None:
+    """``platform.system()`` returns "Darwin"; an exact lowercase match would pick xdg-open.
+
+    That mistake is invisible on Linux CI and breaks the browser on every Mac, which is the one
+    platform this repository is developed on, so the comparison is pinned here.
+    """
+    recorded: list[list[str]] = []
+
+    class Completed:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr("platform.system", lambda: "Darwin")
+    monkeypatch.setattr(
+        "tools.environment_setup._run",
+        lambda command, **kwargs: recorded.append(list(command)) or Completed(),
+    )
+
+    from tools.environment_setup import _open_workspace_browser
+
+    assert _open_workspace_browser() is None
+    assert recorded and recorded[0][0].endswith("open")
+    assert FRONTEND_URL in recorded[0]
+
+
+def test_no_open_refuses_the_browser(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "tools.environment_setup._open_workspace_browser",
+        lambda: pytest.fail("must not open a browser under --no-open"),
+    )
+
+    result = open_workspace(Context(environment={}, open_browser=False))
+
+    assert result.status == SKIPPED
+    assert "--no-open" in result.detail
+
 
 # ---------------------------------------------------------------------------------------------
 # Node engine gate
@@ -266,8 +406,6 @@ def test_summary_treats_skipped_as_a_success(capsys) -> None:
     """A dry run or an explicitly disabled feature must not fail the overall verdict."""
     assert _print_summary([Result("A", SKIPPED, "dry-run")]) == 0
     assert "待处理" in capsys.readouterr().out
-
-
 
 
 # ---------------------------------------------------------------------------------------------
@@ -559,6 +697,67 @@ def test_environment_file_creation_is_skipped_in_dry_run(monkeypatch, tmp_path) 
 
     assert result.status == SKIPPED
     assert not target.exists()
+
+
+def test_a_new_env_does_not_invent_a_key_for_a_store_that_already_has_documents(
+    monkeypatch, tmp_path
+) -> None:
+    """The default store is shared by every checkout, so its key outlives one .env.
+
+    A fresh clone that minted its own key here would leave every already-encrypted credential
+    undecryptable while still reporting a healthy setup - the worst possible outcome, because the
+    loss is silent. The key must stay blank so the store check can ask for the original.
+    """
+    home = tmp_path / "home"
+    store = home / ".qaneris" / "secrets"
+    store.mkdir(parents=True)
+    (store / "sec_existing.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("QANERIS_SECRET_STORE_DIR", raising=False)
+    monkeypatch.delenv("QANERIS_MASTER_KEY", raising=False)
+    target = tmp_path / ".env"
+    monkeypatch.setenv("QANERIS_ENV_FILE", str(target))
+
+    result = _create_environment_file(Context(environment={}, dry_run=False))
+
+    assert result.status == FIXED
+    assert _read_dotenv(target)["QANERIS_MASTER_KEY"] == ""
+    assert result.fix is not None
+    assert "QANERIS_MASTER_KEY" in result.fix
+
+
+def test_a_new_env_generates_a_key_when_the_store_is_empty(monkeypatch, tmp_path) -> None:
+    """The guard must not cost the one-run install when there is nothing to preserve."""
+    home = tmp_path / "home"
+    (home / ".qaneris" / "secrets").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("QANERIS_SECRET_STORE_DIR", raising=False)
+    monkeypatch.delenv("QANERIS_MASTER_KEY", raising=False)
+    target = tmp_path / ".env"
+    monkeypatch.setenv("QANERIS_ENV_FILE", str(target))
+
+    _create_environment_file(Context(environment={}, dry_run=False))
+
+    key = _read_dotenv(target)["QANERIS_MASTER_KEY"]
+    assert len(base64.urlsafe_b64decode(key)) == 32
+
+
+def test_a_new_env_reuses_the_key_it_was_given(monkeypatch, tmp_path) -> None:
+    """An operator-supplied key is authoritative, whether or not the store has documents."""
+    home = tmp_path / "home"
+    store = home / ".qaneris" / "secrets"
+    store.mkdir(parents=True)
+    (store / "sec_existing.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("QANERIS_SECRET_STORE_DIR", raising=False)
+    supplied = generate_master_key()
+    monkeypatch.setenv("QANERIS_MASTER_KEY", supplied)
+    target = tmp_path / ".env"
+    monkeypatch.setenv("QANERIS_ENV_FILE", str(target))
+
+    _create_environment_file(Context(environment={"QANERIS_MASTER_KEY": supplied}, dry_run=False))
+
+    assert _read_dotenv(target)["QANERIS_MASTER_KEY"] == supplied
 
 
 def test_missing_neo4j_password_is_filled_into_an_existing_file(monkeypatch, tmp_path) -> None:

@@ -23,7 +23,7 @@ Qaneris 是面向企业数据的只读、可治理、可追溯问数系统。自
 python3 setup.py
 ```
 
-它会按顺序检查并**自动修复**：缺失的 `uv`、Node 与 Docker，缺失的 `.env` 及其本机密钥，Python 与前端依赖，Neo4j 容器，以及后端与前端服务。其中会自动生成的是本机密钥（Neo4j 容器密码、凭据库主密钥），写入 `.env` 时权限为 600。
+它会按顺序检查并**自动修复**：缺失的 `uv`、Node 与 Docker，缺失的 `.env` 及其本机密钥，Python 与前端依赖，Neo4j 容器，以及后端与前端服务。其中会自动生成的是本机密钥（Neo4j 容器密码、凭据库主密钥），写入 `.env` 时权限为 600。若 Docker 已安装但守护进程未运行，会自动启动 Docker Desktop 并等待就绪；工作台响应后自动打开浏览器。
 
 只有一项无法代填：**模型端点凭据**。它需要真实可用的 API Key，脚本会在交互式终端里询问你；没有它时问数会返回 `intent_parsing_failed`，但扫描、结构查看与 Web 工作区都照常可用。
 
@@ -39,11 +39,15 @@ python3 setup.py --json           # 机器可读结果
 python3 setup.py --no-start       # 只准备环境，不启动服务
 python3 setup.py --no-prompt      # 不询问模型凭据
 python3 setup.py --no-install-docker   # 不自动安装 Docker
+python3 setup.py --no-start-docker     # 守护进程未运行时，不代为启动 Docker Desktop
+python3 setup.py --no-open             # 工作台就绪后不打开浏览器
 ```
 
-自动安装 Docker 时，macOS 从官方地址下载 Docker Desktop（约 586 MB，支持断点续传，写入 `/Applications`），Linux 运行 Docker 官方脚本（需要 root，必须再加 `--allow-root`）。已安装但守护进程未运行时只提示 `open -a Docker`，不代为启动 GUI。
+自动安装 Docker 时，macOS 从官方地址下载 Docker Desktop（约 586 MB，支持断点续传，写入 `/Applications`），Linux 运行 Docker 官方脚本（需要 root，必须再加 `--allow-root`）。仅在厂商提供单一官方安装包的两个平台上会自动下载，其余平台只打印下载链接。macOS 上已安装但守护进程未运行时会执行 `open -a Docker` 并等待就绪（最长 180 秒，含首次启动的许可确认），加 `--no-start-docker` 则只给提示。Linux 上 dockerd 需要 root，不会代为启动。
 
 若 Neo4j 数据卷已存在，其密码在首次初始化时就已固化。脚本检测到端口无服务但数据卷存在时会提示，不会擅自删除你的图数据。
+
+凭据库位于仓库之外（默认 `~/.qaneris/secrets`），同一台机器上的多个 checkout 共用它。因此生成新 `.env` 时，只有在凭据库为空的情况下才会生成主密钥；若库中已有加密凭据，脚本会留空并提示你找回原密钥，因为换用新密钥会让这些凭据无法解密。
 
 ## 启动 Web 工作区
 
