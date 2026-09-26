@@ -540,6 +540,65 @@ class QanerisService:
         """List physical-to-canonical field mappings recorded in one workspace."""
         return self.catalog.list_mappings(workspace_id, entity)
 
+    def describe_published_structure(
+        self, workspace_id: str = "default", datasource_id: str | None = None
+    ) -> dict[str, Any]:
+        """Return the published graph structure a JoinMapping has to reference.
+
+        A mapping is not identified by a table name: confirmation resolves both sides against the
+        published graph and fails when a field does not exist there. The identifiers that resolve
+        are the graph's own ``obj_...`` / ``field_...`` node ids, which the catalog does not store
+        and therefore cannot be listed from it. This is the read-only projection that makes them
+        selectable, and it reads only structure - never sample rows, never a connection.
+
+        Fails closed on an unreachable graph for the same reason semantic retrieval does: an empty
+        list would render as "this datasource has no fields", which is a different fact from "the
+        graph could not be read".
+        """
+        if datasource_id is not None:
+            datasource = self._resolve_datasource(datasource_id)
+            if datasource.workspace_id != workspace_id:
+                raise ValueError("数据源不属于当前工作区")
+        structure = self.graph_reader.read_structure(
+            GraphStructureRequest(
+                workspace_id=workspace_id,
+                datasource_id=datasource_id,
+                max_data_objects=2_000,
+                max_fields=20_000,
+                max_relationships=2_000,
+            )
+        )
+        names = {item.id: item.name for item in self.list_datasources(workspace_id)}
+        fields_by_object: dict[str, list[dict[str, str]]] = {}
+        for field in structure.fields:
+            fields_by_object.setdefault(field.object_id, []).append(
+                {
+                    "node_id": field.node_id,
+                    "path": field.path,
+                    "name": field.name,
+                    "data_type": field.data_type,
+                }
+            )
+        objects = [
+            {
+                "node_id": item.node_id,
+                "datasource_id": item.datasource_id,
+                "datasource_name": names.get(item.datasource_id),
+                "name": item.name,
+                "qualified_name": item.qualified_name,
+                "object_kind": item.object_kind,
+                "fields": sorted(
+                    fields_by_object.get(item.node_id, []), key=lambda field: field["path"]
+                ),
+            }
+            for item in structure.data_objects
+        ]
+        return {
+            "workspace_id": workspace_id,
+            "objects": sorted(objects, key=lambda item: (item["datasource_id"], item["name"])),
+            "truncated": structure.truncated,
+        }
+
     def _resolve_datasource(self, datasource_id: str) -> Datasource:
         """Read one datasource, reporting an unknown id as the stable product error.
 

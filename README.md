@@ -35,6 +35,7 @@ Commands resolve `.env` against the **current directory** (override with the glo
 ### Interactive session
 
 ```bash
+qaneris            # the same session: a bare invocation opens it directly
 qaneris shell
 ```
 
@@ -49,9 +50,18 @@ An inline TUI: the banner and a persistent status line are drawn by the terminal
 - Command history is written to `.tools/shell_history` (directory 0700 / file 0600, already git-ignored); disable it with `--no-history` or move it with `--history FILE`.
 
 ```bash
-qaneris shell --no-banner        # skip the welcome panel
-qaneris shell --no-history       # keep no history
-qaneris shell --history ~/.qaneris_history
+qaneris --no-banner              # skip the welcome panel
+qaneris --no-history             # keep no history
+qaneris --history ~/.qaneris_history
+```
+
+A bare `qaneris` opens this session rather than printing a usage error, and so does `qaneris` with
+only session options, so the two forms below are equivalent. A named command, and `--help`, keep
+the one-shot entry point.
+
+```bash
+qaneris            # opens the session
+qaneris shell      # opens the same session
 ```
 
 ### Command reference
@@ -84,6 +94,7 @@ qaneris certificate delete SECRET_ID [--json]
 qaneris acceptance phase1 [--question-class {A,B,C,D,E,F}] [--repeat N] [--no-trace] [--json]
 qaneris acceptance ask --suite phase1 [...same options]
 
+qaneris [--history FILE | --no-history] [--no-banner]   # bare form: opens the session
 qaneris shell [--history FILE | --no-history] [--no-banner]
 ```
 

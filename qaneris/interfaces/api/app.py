@@ -193,6 +193,16 @@ def create_app(database_path: str | None = None) -> FastAPI:
     def governance_suggestions(workspace_id: str = Query("default")):
         return service.list_suggestions(workspace_id)
 
+    @app.get("/api/governance/published-structure")
+    def published_structure(workspace_id: str = Query("default"), datasource_id: str | None = None):
+        """The graph node ids a JoinMapping must reference, so they can be selected in the UI.
+
+        Separate from ``/api/schema-context`` on purpose: that one is catalog-backed and therefore
+        has no node ids, while this one reads the published graph. Keeping them apart means a
+        renderer never has to guess which identifiers are confirmable.
+        """
+        return service.describe_published_structure(workspace_id, datasource_id)
+
     # Credential and certificate upload. They resolve the same ``app.state.service`` every other
     # route does and call only its public managed-secret methods.
     register_credential_routes(app)

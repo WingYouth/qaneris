@@ -13,6 +13,7 @@
 7. [Connection Model](connection-model.md)：数据库连接、Secret(密钥)、SSL/TLS(加密连接)、证书与 CredentialStore(凭据存储)。
 8. [Server Test Database Environment](test-database-environment.md)：Qaneris(问数项目)可使用的 17 库服务器测试环境、责任边界与验收流程；不包含 Adapter(适配器) 配置。
 9. [Roadshow Overview](roadshow-overview.md)：路演口径、Demo(演示)范围与不能过度承诺的内容。
+10. [CLI Demo Session](cli-demo-session.md)：`qaneris shell` 路演演示脚本，含逐条命令、预期输出与已知限制。
 
 ## 2. Reading Order(阅读顺序)
 
@@ -28,4 +29,5 @@
 - 服务器测试数据库环境用途或责任边界变化：更新 `test-database-environment.md`；完整连接矩阵仍以 `NLQuery-Test-Dataset` 为准。
 - 完成度、优先级、Roadshow Scope(路演范围)变化：只更新 `development-roadmap.md`。
 - 路演对外口径变化：更新 `roadshow-overview.md`。
+- 演示命令、预期输出或已知限制变化：更新 `cli-demo-session.md`（`⚠` 标记的失败路径一旦修复，同步改这里）。
 - 普通 Bug Fix(缺陷修复)、Refactor(重构)和测试增加不要求同步修改所有文档。
