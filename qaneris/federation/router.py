@@ -53,7 +53,13 @@ class FederationRouter:
         explicit = [source for source in sources if _mentions(question, source.name)
                     or _mentions(question, source.id)]
         if len(explicit) >= 2:
+            if not any(coverage[source.id] for source in explicit):
+                raise FederationFailure("federation_semantics_missing", blocked=True)
             kind = "federated"
+        elif len(explicit) == 1:
+            # An explicit source choice is stronger than semantic coverage. Scanned
+            # fields can answer physical-field questions before business assets exist.
+            kind = "single_source"
         elif required and any(set(required) <= names for names in coverage.values()):
             kind = "single_source"
         elif required and set(required) <= set().union(*coverage.values()) \
@@ -63,7 +69,7 @@ class FederationRouter:
             kind = "single_source"
         full = [source.id for source in sources
                 if required and set(required) <= coverage[source.id]]
-        selected = full[0] if len(full) == 1 else None
+        selected = explicit[0].id if len(explicit) == 1 else full[0] if len(full) == 1 else None
         if kind == "single_source" and selected is None and len(sources) > 1:
             raise FederationFailure("source_selection_ambiguous", blocked=True)
         return RoutingDecision(kind, query.model_dump(mode="json"), summaries, selected)

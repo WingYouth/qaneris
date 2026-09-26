@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { cancelRun, clarifyRun, createConversation, createRun, getConversation, getRun, listConversations, retryRun } from "../../api/conversations.js";
+import { cancelRun, clarifyRun, createConversation, createRun, deleteConversation, getConversation, getRun, listConversations, retryRun } from "../../api/conversations.js";
 import { scanDatasource } from "../../api/datasources.js";
 import { subscribeRunEvents } from "../../api/runStream.js";
 import { conversationReducer, conversationTitle, initialConversationState, latestRunId, RUN_BUSY } from "../../conversation/conversationState.js";
@@ -14,6 +14,11 @@ const rememberSelection = (id) => {
   url.searchParams.set("conversation", id);
   window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 };
+const forgetSelection = () => {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("conversation");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+};
 const requestId = () => globalThis.crypto?.randomUUID?.() || `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export function ConversationWorkspace({
@@ -25,6 +30,7 @@ export function ConversationWorkspace({
   const [state, dispatch] = useReducer(conversationReducer, undefined, initialConversationState);
   const [scope, setScope] = useState(suggestedScope ? [suggestedScope] : []);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [streamError, setStreamError] = useState(null);
@@ -96,7 +102,7 @@ export function ConversationWorkspace({
     return () => { live = false; controller.abort(); };
   }, [observedRun, observeVersion, selectedId, refreshDetail, refreshList]);
 
-  const selectConversation = (id) => { selectedRef.current = id; setSelectedId(id); setObservedRun(null); setError(null); };
+  const selectConversation = (id) => { selectedRef.current = id; setSelectedId(id); setObservedRun(null); setDraft(""); setError(null); };
   const newConversation = async () => {
     if (creating || !backendAvailable) return;
     setCreating(true); setError(null);
@@ -106,10 +112,35 @@ export function ConversationWorkspace({
     } catch (cause) { setError(cause); }
     finally { setCreating(false); }
   };
+  const removeConversation = async (id) => {
+    setDeletingId(id); setError(null);
+    try {
+      await deleteConversation(id);
+      const remaining = await listConversations(workspaceId);
+      setList(remaining);
+      if (selectedRef.current === id) {
+        const next = remaining[0]?.conversation_id || null;
+        selectedRef.current = next;
+        setSelectedId(next);
+        setObservedRun(null);
+        setDraft("");
+        dispatch({ type: "open", detail: { conversation: null, messages: [] } });
+        if (!next) forgetSelection();
+      }
+    } catch (cause) { setError(cause); throw cause; }
+    finally { setDeletingId(null); }
+  };
   const send = async () => {
     if (!backendAvailable || lock.current) return;
     const question = draft.trim();
     if (!question || !selectedId) return;
+    if (active?.status === "WAITING_USER") {
+      if (active.current_stage !== "waiting_user") return;
+      lock.current = true;
+      try { await act(latest, "clarify", question); }
+      finally { lock.current = false; }
+      return;
+    }
     lock.current = true; setBusy(true); setError(null);
     if (!pending.current || pending.current.question !== question || pending.current.conversationId !== selectedId)
       pending.current = { question, conversationId: selectedId, clientRequestId: requestId() };
@@ -124,7 +155,7 @@ export function ConversationWorkspace({
   const act = async (runId, action, answer) => {
     setError(null); setBusy(true);
     try {
-      if (action === "clarify") await clarifyRun(runId, answer);
+      if (action === "clarify") { await clarifyRun(runId, answer); setDraft(""); }
       if (action === "cancel") await cancelRun(runId);
       if (action === "retry") await retryRun(runId);
       if (action === "rescan-retry") {
@@ -153,10 +184,12 @@ export function ConversationWorkspace({
   };
   const latest = latestRunId(state.messages);
   const active = state.runs[latest];
-  const inputDisabled = !backendAvailable || busy || (active && RUN_BUSY.has(active.status));
+  const confirming = active?.status === "WAITING_USER" && active.current_stage === "waiting_user";
+  const inputDisabled = !backendAvailable || busy || (active && RUN_BUSY.has(active.status) && !confirming);
   return <section className="conversation-workspace" aria-label="对话问数">
     <ConversationSidebar conversations={list} selectedId={selectedId} onSelect={selectConversation}
       onCreate={newConversation} creating={creating} disabled={!backendAvailable}
+      onDelete={removeConversation} deletingId={deletingId}
       datasources={datasources} scope={scope} onScopeChange={setScope} drivers={drivers}
       query={query} workspaceId={workspaceId} onWorkspaceChange={onWorkspaceChange} onAddDatasource={onAddDatasource} />
     <div className="conversation-main">
@@ -175,7 +208,12 @@ export function ConversationWorkspace({
         onLoadRun={loadRun} onAction={act} busy={busy}
         canRescan={state.conversation?.datasource_scope?.length === 1} onOpenGovernance={onOpenGovernance} />
       <MessageComposer value={draft} onChange={(next) => { setDraft(next); if (pending.current?.question !== next.trim()) pending.current = null; }} onSend={send}
-        disabled={inputDisabled || !selectedId} hint={!backendAvailable ? "后端不可用，暂不能发送新问题" : active?.status === "WAITING_USER" ? "请确认上方问题，或取消本轮" : active && RUN_BUSY.has(active.status) ? "当前问题处理中" : !selectedId ? "请先创建对话" : "Enter 发送 · Shift+Enter 换行"} />
+        confirming={confirming}
+        scopeNames={(state.conversation?.datasource_scope?.length
+          ? datasources.filter((item) => state.conversation.datasource_scope.includes(item.id))
+          : datasources.filter((item) => item.status === "ready")).map((item) => item.name || item.id)}
+        automaticScope={state.conversation?.datasource_scope?.length === 0}
+        disabled={inputDisabled || !selectedId} hint={!backendAvailable ? "后端不可用，暂不能发送新问题" : confirming ? "确认内容将发送到当前问题；Enter 发送 · Shift+Enter 换行" : active && RUN_BUSY.has(active.status) ? "当前问题处理中" : !selectedId ? "请先创建对话" : "Enter 发送 · Shift+Enter 换行"} />
     </div>
   </section>;
 }

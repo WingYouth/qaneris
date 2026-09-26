@@ -1884,6 +1884,14 @@ body { background: var(--canvas); }
 .conversation-list button time { color: var(--soft); font-size: .64rem; }
 .conversation-list button:hover { border-color: #A6DC93; background: #F8FCF6; }
 .conversation-list button.is-selected, .conversation-list button.is-selected:hover { border-color: #356B43; background: #EAF4E5; }
+.conversation-list__item { position: relative; }
+.conversation-list .conversation-list__select { padding-right: 58px; }
+.conversation-list .conversation-list__delete { position: absolute; top: 10px; right: 9px; width: auto; padding: 5px 7px; border: 0; color: var(--muted); font-size: .68rem; }
+.conversation-list .conversation-list__delete:hover { color: var(--danger); background: var(--danger-bg); }
+.conversation-list__confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.conversation-list__confirm span { flex-basis: 100%; font-size: .72rem; }
+.conversation-list .conversation-list__confirm button { width: auto; padding: 5px 8px; font-size: .7rem; }
+.conversation-list .conversation-list__confirm button:last-child { color: var(--danger); }
 .conversation-list__empty { margin: 0; padding: 6px 2px; color: var(--soft); font-size: .73rem; }
 
 .scope-panel { display: grid; gap: 10px; padding-top: 15px; border-top: 1px solid var(--line); }
@@ -2040,5 +2048,4 @@ body { background: var(--canvas); }
   .content:has(.driver-picker) .driver-picker__grid { overflow: visible; }
   .content:has(.driver-picker) .driver-picker__main { overflow: visible; }
 }
-
 

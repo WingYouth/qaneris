@@ -5,7 +5,7 @@ import json
 from time import monotonic
 from typing import Annotated
 
-from fastapi import FastAPI, Header, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -84,7 +84,23 @@ def register_conversation_routes(
 
     @app.get("/api/conversations/{conversation_id}")
     def get_conversation(conversation_id: str):
-        return conversation_service.detail(conversation_id)
+        try:
+            return conversation_service.detail(conversation_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="对话不存在") from error
+
+    @app.delete("/api/conversations/{conversation_id}", status_code=204)
+    def delete_conversation(conversation_id: str):
+        try:
+            conversation_service.delete(conversation_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="对话不存在") from error
+        except ValueError as error:
+            if str(error) != "conversation_has_active_runs":
+                raise
+            raise HTTPException(
+                status_code=409, detail="对话仍有正在执行或等待确认的问题，请先取消本轮再删除。"
+            ) from error
 
     @app.post("/api/conversations/{conversation_id}/runs", status_code=202)
     def create_run(conversation_id: str, body: RunCreate):
@@ -99,7 +115,10 @@ def register_conversation_routes(
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str):
-        run = runs.get(run_id)
+        try:
+            run = runs.get(run_id)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="运行记录不存在") from error
         if run.run_kind != "federated":
             return run
         payload = run.model_dump(mode="json")

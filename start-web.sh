@@ -7,6 +7,37 @@ backend_pid=""
 frontend_pid=""
 url="http://127.0.0.1:5173/"
 
+backend_is_healthy() {
+  curl --silent --fail --max-time 2 http://127.0.0.1:8000/health >/dev/null
+}
+
+backend_has_current_routes() {
+  curl --silent --fail --max-time 2 http://127.0.0.1:8000/openapi.json |
+    "$repo_root/.venv/bin/python" -c 'import json, sys; schema = json.load(sys.stdin); assert "delete" in schema["paths"]["/api/conversations/{conversation_id}"]' 2>/dev/null
+}
+
+restart_stale_backend() {
+  local listener_pid listener_cwd
+  if ! command -v lsof >/dev/null 2>&1; then
+    echo "现有后端缺少当前接口，且找不到 lsof，无法安全确认进程归属。请停止旧后端后重试。" >&2
+    return 1
+  fi
+  listener_pid="$(lsof -nP -t -iTCP:8000 -sTCP:LISTEN | head -n 1)"
+  listener_cwd="$(lsof -a -p "$listener_pid" -d cwd -Fn | sed -n 's/^n//p' | head -n 1)"
+  if [[ -z "$listener_pid" || "$listener_cwd" != "$repo_root" ]]; then
+    echo "现有后端缺少当前接口，但 8000 端口的进程不属于当前仓库。请先检查该进程。" >&2
+    return 1
+  fi
+  echo "检测到当前仓库的旧版后端（PID ${listener_pid}），正在重启…"
+  kill -TERM "$listener_pid"
+  for ((attempt = 0; attempt < 50; attempt++)); do
+    if ! kill -0 "$listener_pid" 2>/dev/null; then return 0; fi
+    sleep 0.2
+  done
+  echo "旧后端未退出，请检查 PID ${listener_pid}。" >&2
+  return 1
+}
+
 cleanup() {
   if [[ -n "$frontend_pid" ]]; then kill "$frontend_pid" 2>/dev/null || true; fi
   if [[ -n "$backend_pid" ]]; then kill "$backend_pid" 2>/dev/null || true; fi
@@ -37,20 +68,28 @@ if [[ ! -d "$frontend_dir/node_modules" ]]; then
   (cd "$frontend_dir" && npm ci --prefer-offline --no-audit)
 fi
 
-if curl --silent --fail --max-time 2 http://127.0.0.1:8000/health >/dev/null; then
-  echo "后端已在 127.0.0.1:8000 运行。"
+if backend_is_healthy && ! backend_has_current_routes; then
+  restart_stale_backend
+fi
+
+if backend_is_healthy; then
+  echo "后端已在 127.0.0.1:8000 运行，当前接口已加载。"
 else
   "$repo_root/.venv/bin/python" -m uvicorn qaneris.interfaces.api.app:app --host 127.0.0.1 --port 8000 &
   backend_pid=$!
   for ((attempt = 0; attempt < 50; attempt++)); do
-    if curl --silent --fail --max-time 2 http://127.0.0.1:8000/health >/dev/null; then break; fi
+    if backend_is_healthy; then break; fi
     if ! kill -0 "$backend_pid" 2>/dev/null; then echo "后端启动失败。" >&2; exit 1; fi
     sleep 0.2
   done
-  if ! curl --silent --fail --max-time 2 http://127.0.0.1:8000/health >/dev/null; then
+  if ! backend_is_healthy; then
     echo "后端健康检查超时。" >&2
     exit 1
   fi
+fi
+if ! backend_has_current_routes; then
+  echo "后端缺少当前对话接口，启动失败。" >&2
+  exit 1
 fi
 
 if curl --silent --fail --max-time 2 "$url" >/dev/null; then

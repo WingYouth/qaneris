@@ -34,9 +34,11 @@ const scopeSummary = (conversation) => {
  */
 export function ConversationSidebar({
   conversations, selectedId, onSelect, onCreate, creating, disabled,
+  onDelete, deletingId,
   datasources, scope, onScopeChange, drivers = [], query = "", workspaceId = "default", onWorkspaceChange, onAddDatasource,
 }) {
   const [filter, setFilter] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const needle = (filter.trim() || query.trim()).toLowerCase();
   const matches = (text) => !needle || String(text || "").toLowerCase().includes(needle);
   const shownConversations = conversations.filter((item) => matches(conversationTitle(item)));
@@ -47,14 +49,23 @@ export function ConversationSidebar({
     <div className="conversation-sidebar__heading"><strong>对话历史</strong><small>{conversations.length} 个对话</small></div>
     <button className="primary-button conversation-new" type="button" onClick={onCreate} disabled={creating || disabled}>+ 新对话</button>
     <nav className="conversation-list" aria-label="已有对话">
-      {shownConversations.map((item) => <button key={item.conversation_id} type="button"
-        aria-current={selectedId === item.conversation_id ? "page" : undefined}
-        className={selectedId === item.conversation_id ? "is-selected" : ""}
-        onClick={() => onSelect(item.conversation_id)}>
-        <strong>{conversationTitle(item)}</strong>
-        <small>{scopeSummary(item)}</small>
-        <time dateTime={item.updated_at || undefined}>{stamp(item.updated_at)}</time>
-      </button>)}
+      {shownConversations.map((item) => <div className="conversation-list__item" key={item.conversation_id}>
+        <button className={`conversation-list__select${selectedId === item.conversation_id ? " is-selected" : ""}`}
+          type="button" aria-current={selectedId === item.conversation_id ? "page" : undefined}
+          onClick={() => onSelect(item.conversation_id)}>
+          <strong>{conversationTitle(item)}</strong>
+          <small>{scopeSummary(item)}</small>
+          <time dateTime={item.updated_at || undefined}>{stamp(item.updated_at)}</time>
+        </button>
+        {pendingDeleteId === item.conversation_id ? <div className="conversation-list__confirm">
+          <span>删除这段对话及其记录？</span>
+          <button type="button" disabled={Boolean(deletingId)} onClick={() => setPendingDeleteId(null)}>取消</button>
+          <button type="button" disabled={Boolean(deletingId)} onClick={async () => {
+            try { await onDelete(item.conversation_id); setPendingDeleteId(null); } catch { /* Parent shows the error. */ }
+          }}>{deletingId === item.conversation_id ? "删除中…" : "确认删除"}</button>
+        </div> : <button className="conversation-list__delete" type="button" disabled={disabled || Boolean(deletingId)}
+          aria-label={`删除对话：${conversationTitle(item)}`} onClick={() => setPendingDeleteId(item.conversation_id)}>删除</button>}
+      </div>)}
       {!shownConversations.length ? <p className="conversation-list__empty">{conversations.length ? "没有匹配的对话。" : "还没有对话，先新建一个。"}</p> : null}
     </nav>
     <section className="scope-panel" aria-labelledby="scope-panel-title">

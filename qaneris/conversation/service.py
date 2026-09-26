@@ -36,6 +36,9 @@ class ConversationService:
             "memory": self.repository.memory(conversation_id),
         }
 
+    def delete(self, conversation_id: str) -> None:
+        self.repository.delete(conversation_id)
+
     def user_message(
         self, conversation_id: str, content: str, run_id: str, kind: str = "normal"
     ) -> Message:

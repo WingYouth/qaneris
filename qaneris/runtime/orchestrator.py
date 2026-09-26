@@ -7,7 +7,7 @@ from qaneris.application.inventory import is_workspace_inventory_question
 from qaneris.capabilities.ask import AskCapability
 from qaneris.common.errors import QanerisError
 from qaneris.common.redaction import safe_error
-from qaneris.contracts import AskRequest, AskResponse, AskStatus
+from qaneris.contracts import AskClarification, AskRequest, AskResponse, AskStatus
 from qaneris.contracts.semantic import BusinessObjective
 from qaneris.conversation.context import ConversationContextResolver
 from qaneris.conversation.memory import confirmed_memory
@@ -303,6 +303,12 @@ class RunOrchestrator:
                 message = "当前数据对象没有已确认的跨数据源关联键，不会根据同名字段自动关联。"
             elif code == "stale_join_mapping":
                 message = "跨数据源关联键绑定的扫描版本已变化，请重新确认映射。"
+            elif code == "source_selection_ambiguous":
+                message = "当前范围内有多个可用数据源，问题未指定使用哪一个。请在问题中写明数据源名称，或只选择一个数据源新建对话；跨库分析需明确各数据源及其业务口径。"
+            elif code == "source_selection_unresolved":
+                message = "确认内容没有选出唯一数据源。请新建对话并只选择一个数据源，或在问题中写明数据源名称。"
+            elif code == "federation_semantics_missing":
+                message = "所选数据源没有已发布的业务指标或维度，无法确认跨源分析口径。请先为参与的数据源发布相应业务定义。"
             current = self._save(
                 transition(
                     current,
@@ -377,7 +383,33 @@ class RunOrchestrator:
                 from qaneris.federation.router import RoutingDecision
                 decision = RoutingDecision("federated", {}, [])
             else:
-                decision = self.federation_router.route(resolved, conversation.workspace_id, allowed)
+                try:
+                    decision = self.federation_router.route(resolved, conversation.workspace_id, allowed)
+                except FederationFailure as error:
+                    if error.code != "source_selection_ambiguous":
+                        raise
+                    prompt = "请选择这次查询要使用的数据源。若要联合分析，请在问题中写明两个数据源。"
+                    if previous_clarification == prompt:
+                        raise FederationFailure("source_selection_unresolved", blocked=True) from error
+                    names = [source.name for source in self.federation_service.list_datasources(
+                        conversation.workspace_id
+                    ) if source.id in allowed]
+                    response = AskResponse(
+                        question=resolved,
+                        status=AskStatus.CLARIFICATION_REQUIRED,
+                        answer=prompt,
+                        clarification=[AskClarification(question=prompt, options=names[:20])],
+                    )
+                    run = self._save(transition(
+                        run, RunStatus.WAITING_USER,
+                        response_json=response.model_dump(mode="json"),
+                    ))
+                    self.messages.assistant_message(
+                        run.conversation_id, prompt, run.run_id,
+                        kind="clarification", checkpoint_revision=run.revision,
+                    )
+                    self.runs.append_event(run.run_id, "CLARIFICATION_REQUIRED", {})
+                    return
             if decision.kind == "federated":
                 run = self._save(run.model_copy(update={"run_kind": "federated"}))
                 self.federation.drive(run, resolved, memory, allowed, decision, clarifications)

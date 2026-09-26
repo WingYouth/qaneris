@@ -1,6 +1,7 @@
 """Public conversation API and durable SSE replay."""
 
 import asyncio
+import sqlite3
 
 from fastapi.testclient import TestClient
 from test_runtime import FakeAsk, FakeModel, QueuedScheduler
@@ -48,6 +49,54 @@ def test_conversation_routes_and_replayed_sse(tmp_path):
         assert "event: RUN_COMPLETED" in replay.text
         assert "id: 3" not in replay.text
         assert len(runtime.ask.questions) == 1
+
+
+def test_delete_conversation_removes_history_and_run_state(tmp_path):
+    path = tmp_path / "catalog.db"
+    app = create_app(str(path))
+    runtime = app.state.run_orchestrator
+    runtime.ask = FakeAsk()
+    runtime.resolver.model = FakeModel()
+    runtime.scheduler = InlineRunScheduler()
+    with TestClient(app) as client:
+        conversation_id = client.post("/api/conversations", json={}).json()["conversation_id"]
+        run_id = client.post(
+            f"/api/conversations/{conversation_id}/runs", json={"question": "销售额是多少？"}
+        ).json()["run_id"]
+        with sqlite3.connect(path) as db:
+            db.execute("INSERT INTO diagnostic_checkpoint VALUES (?, '{}', 0)", (run_id,))
+            db.execute("INSERT INTO diagnostic_task VALUES (?, ?, 1, 1, '{}', 0)", ("diag-task", run_id))
+            db.execute("INSERT INTO federated_plan VALUES (?, '{}')", (run_id,))
+            db.execute("INSERT INTO federated_source_task VALUES (?, ?, 1, '{}', 0)", ("fed-task", run_id))
+        assert client.delete(f"/api/conversations/{conversation_id}").status_code == 204
+        assert client.get("/api/conversations").json() == []
+        assert client.get(f"/api/conversations/{conversation_id}").status_code == 404
+        assert client.get(f"/api/runs/{run_id}").status_code == 404
+        assert client.delete(f"/api/conversations/{conversation_id}").status_code == 404
+    with sqlite3.connect(path) as db:
+        for table, column, value in (
+            ("conversation", "id", conversation_id),
+            ("conversation_message", "conversation_id", conversation_id),
+            ("conversation_memory", "conversation_id", conversation_id),
+            ("run", "conversation_id", conversation_id),
+            ("run_event", "run_id", run_id),
+            ("diagnostic_checkpoint", "run_id", run_id),
+            ("diagnostic_task", "run_id", run_id),
+            ("federated_plan", "run_id", run_id),
+            ("federated_source_task", "run_id", run_id),
+        ):
+            assert db.execute(f"SELECT count(*) FROM {table} WHERE {column}=?", (value,)).fetchone()[0] == 0
+
+
+def test_delete_conversation_refuses_active_run(tmp_path):
+    app = create_app(str(tmp_path / "catalog.db"))
+    app.state.run_orchestrator.scheduler = QueuedScheduler()
+    with TestClient(app) as client:
+        conversation_id = client.post("/api/conversations", json={}).json()["conversation_id"]
+        client.post(f"/api/conversations/{conversation_id}/runs", json={"question": "销售额是多少？"})
+        response = client.delete(f"/api/conversations/{conversation_id}")
+        assert response.status_code == 409
+        assert len(client.get("/api/conversations").json()) == 1
 
 
 def test_observer_disconnect_does_not_cancel_run(tmp_path):

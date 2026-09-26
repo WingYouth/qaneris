@@ -97,6 +97,40 @@ class SQLiteConversationRepository:
             ).fetchall()
         return [self._conversation(row) for row in rows]
 
+    def delete(self, conversation_id: str) -> None:
+        """Remove one settled conversation and its durable run state atomically."""
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if db.execute("SELECT 1 FROM conversation WHERE id=?", (conversation_id,)).fetchone() is None:
+                raise KeyError(conversation_id)
+            tables = {row[0] for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )}
+            run_ids = []
+            if "run" in tables:
+                active = db.execute(
+                    "SELECT 1 FROM run WHERE conversation_id=? AND status NOT IN "
+                    "('COMPLETED','FAILED','CANCELLED','BLOCKED') LIMIT 1",
+                    (conversation_id,),
+                ).fetchone()
+                if active is not None:
+                    raise ValueError("conversation_has_active_runs")
+                run_ids = [row[0] for row in db.execute(
+                    "SELECT id FROM run WHERE conversation_id=?", (conversation_id,)
+                )]
+            for run_id in run_ids:
+                for table in (
+                    "diagnostic_task", "diagnostic_checkpoint", "federated_source_task",
+                    "federated_plan", "run_event",
+                ):
+                    if table in tables:
+                        db.execute(f"DELETE FROM {table} WHERE run_id=?", (run_id,))
+            if "run" in tables:
+                db.execute("DELETE FROM run WHERE conversation_id=?", (conversation_id,))
+            db.execute("DELETE FROM conversation_message WHERE conversation_id=?", (conversation_id,))
+            db.execute("DELETE FROM conversation_memory WHERE conversation_id=?", (conversation_id,))
+            db.execute("DELETE FROM conversation WHERE id=?", (conversation_id,))
+
     def add_message(self, message: Message) -> None:
         with self._connect() as db:
             db.execute(

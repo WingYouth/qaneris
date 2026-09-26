@@ -107,17 +107,13 @@ function QanerisAvatar() {
 }
 
 function ClarificationCard({ view, onSubmit, disabled }) {
-  const [answer, setAnswer] = useState("");
   const options = view?.clarification?.[0]?.options || [];
   const question = view?.clarification?.[0]?.question || view?.answer || "请补充信息以继续。";
   return <section className="clarification-card" aria-label="需要确认"><strong>{question}</strong>
     {options.length ? <div className="clarification-options">{options.map((option) => {
       const label = typeof option === "string" ? option : option?.label || option?.value || "";
       return <button key={label} type="button" disabled={disabled} onClick={() => onSubmit(label)}>{label}</button>;
-    })}</div> : <form onSubmit={(event) => { event.preventDefault(); if (answer.trim()) onSubmit(answer.trim()); }}>
-      <input aria-label="澄清回答" placeholder="填写确认内容后继续" value={answer} onChange={(event) => setAnswer(event.target.value)} disabled={disabled} />
-      <button type="submit" disabled={disabled || !answer.trim()}>确认</button>
-    </form>}
+    })}</div> : <p>请在下方对话框输入确认内容。</p>}
   </section>;
 }
 
@@ -171,7 +167,8 @@ function RunCard({ runId, run, events, message, onLoadRun, onAction, busy, canRe
       {MAPPING_FAILURES.has(run?.failure_code) && onOpenGovernance ? <button className="inline-action" type="button" onClick={onOpenGovernance}>去确认关联映射</button> : null}
     </p> : null}
     {status === "CANCELLED" ? <p className="run-progress">此轮已取消。</p> : null}
-    {status === "WAITING_USER" ? <ClarificationCard view={view} disabled={busy} onSubmit={(value) => onAction(runId, "clarify", value)} /> : null}
+    {status === "WAITING_USER" && run.current_stage === "waiting_user" ? <ClarificationCard view={view} disabled={busy} onSubmit={(value) => onAction(runId, "clarify", value)} /> : null}
+    {status === "WAITING_USER" && run.current_stage === "resume_queued" ? <p className="run-progress">确认已提交，正在继续处理…</p> : null}
     {run && status !== "COMPLETED" && status !== "FAILED" && status !== "BLOCKED" && status !== "CANCELLED" ? <button type="button" className="secondary-button" disabled={busy} onClick={() => onAction(runId, "cancel")}>取消本轮</button> : null}
     {status === "FAILED" && run.retryable ? <button type="button" className="secondary-button" disabled={busy}
       title={rescanRequired && !canRescan ? "当前对话未绑定唯一数据源，请前往“数据源”页面重新扫描" : undefined}

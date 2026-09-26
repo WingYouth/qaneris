@@ -90,6 +90,15 @@ def build(tmp_path: Path, ask=None, model=None, scheduler=None):
     return conversations, runs, ask, runtime
 
 
+def test_delete_empty_conversation_without_run_tables(tmp_path):
+    repository = SQLiteConversationRepository(str(tmp_path / "conversations.db"))
+    conversation = ConversationService(repository).create()
+    ConversationService(repository).delete(conversation.conversation_id)
+    assert repository.list("default") == []
+    with pytest.raises(KeyError):
+        repository.get(conversation.conversation_id)
+
+
 def test_four_turn_memory_reopen_and_single_execution(tmp_path):
     conversations, runs, ask, runtime = build(tmp_path)
     conversation = ConversationService(conversations).create()
