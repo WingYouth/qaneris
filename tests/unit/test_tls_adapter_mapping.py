@@ -583,7 +583,31 @@ def test_opensearch_adapter_passes_a_context_and_use_ssl(monkeypatch) -> None:
     kwargs = captured.calls[-1][1]
     assert isinstance(kwargs["ssl_context"], ssl.SSLContext)
     assert kwargs["use_ssl"] is True
-    assert kwargs["verify_certs"] is True
+    assert "verify_certs" not in kwargs
+
+
+def test_opensearch_can_verify_certificate_name_for_ip_endpoint(monkeypatch) -> None:
+    captured = Capture()
+    monkeypatch.setattr("opensearchpy.OpenSearch", captured, raising=False)
+    connection = materialized("opensearch", ca=ca_pem(), server_name="node-0.example.com")
+    connection["server_name"] = "node-0.example.com"
+    adapter = SearchAdapter("ds", connection)
+
+    with adapter._client():
+        pass
+
+    kwargs = captured.kwargs
+    assert kwargs["ssl_assert_hostname"] == "node-0.example.com"
+    assert kwargs["ssl_context"].verify_mode == ssl.CERT_REQUIRED
+    verified_connection = kwargs["connection_class"](
+        host="127.0.0.1",
+        port=9201,
+        use_ssl=True,
+        ssl_context=kwargs["ssl_context"],
+        ssl_assert_hostname=kwargs["ssl_assert_hostname"],
+    )
+    assert verified_connection.pool.assert_hostname == "node-0.example.com"
+    verified_connection.pool.close()
 
 
 def test_opensearch_host_profile_uses_its_addresses(monkeypatch) -> None:
@@ -702,6 +726,22 @@ def test_qdrant_host_profile_forwards_verification(stub_driver_modules) -> None:
     assert kwargs["https"] is True
     assert kwargs["verify"] is False
     assert "url" not in kwargs
+
+
+def test_qdrant_api_key_over_http_requires_explicit_opt_in(stub_driver_modules) -> None:
+    captured = Capture()
+    stub_driver_modules("qdrant_client", QdrantClient=captured)
+    connection = {"host": "localhost", "port": 6333, "api_key": "test-key", "tls": False}
+    adapter = QdrantAdapter("ds", connection)
+
+    with pytest.raises(ValueError, match="明文 HTTP"), adapter._client():
+        pass
+    assert not captured.calls
+
+    connection["allow_insecure_api_key_http"] = True
+    with adapter._client():
+        pass
+    assert captured.kwargs["https"] is False
 
 
 @pytest.mark.parametrize("driver", ["qdrant"])

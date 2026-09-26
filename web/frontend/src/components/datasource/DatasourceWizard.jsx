@@ -28,8 +28,8 @@ const emptyForm = (workspaceId, existing) => ({
   driver: existing?.driver || "", mode: "local", locatorMode: "host",
   host: "", port: existing?.driver ? DEFAULT_PORTS[existing.driver] || "" : "",
   path: "", url: "", database: "", namespace: "", project: "", account: "", org: "", bucket: "",
-  options: "{}", auth: existing?.driver === "influxdb" ? "token" : "none", username: "", source: "create", secretId: "", rawSecret: "",
-  tls: existing?.driver === "sqlserver", verifyServer: true, tlsVersion: "1.2", serverName: "", caId: "", caFile: null,
+  options: "{}", auth: existing?.driver === "influxdb" ? "token" : "none", username: "", source: "create", secretId: "", rawSecret: "", allowInsecureKeyHttp: false,
+  tls: ["sqlserver", "opensearch"].includes(existing?.driver), verifyServer: true, tlsVersion: "1.2", serverName: "", caId: "", caFile: null,
   certId: "", keyId: "", certFile: null, keyFile: null, keyPassword: "",
 });
 
@@ -71,6 +71,7 @@ function buildProfile(draft) {
     options.org = draft.org.trim();
     options.bucket = draft.bucket.trim();
   }
+  if (draft.driver === "qdrant" && !draft.tls && draft.allowInsecureKeyHttp) options.allow_insecure_api_key_http = true;
   return { driver: draft.driver, deployment_mode: draft.mode, endpoint, authentication, tls, options };
 }
 
@@ -84,6 +85,7 @@ function validateForm(form, capability, kind, existing) {
   if (form.driver === "redis" && form.database.trim() && !/^\d+$/.test(form.database.trim())) return "Redis 数据库请填写非负整数编号，例如 0。";
   if (form.driver === "oracle" && form.locatorMode === "host" && !form.database.trim()) return "请填写 Oracle Service Name。";
   if (form.driver === "influxdb" && (!form.org.trim() || !form.bucket.trim())) return "请填写 InfluxDB Organization 和 Bucket。";
+  if (form.driver === "qdrant" && form.auth === "api_key" && !form.tls && !form.allowInsecureKeyHttp) return "Qdrant API Key 通过 HTTP 传输前，请开启 HTTPS，或明确允许明文传输。";
   if (!(DRIVER_AUTH[form.driver] || ["none"]).includes(form.auth)) return "当前驱动不支持所选的认证方式。";
   if (!SPECIAL_ENDPOINT.has(form.driver)) {
     if (HOST_ONLY.has(form.driver) || form.locatorMode === "host") {
@@ -138,7 +140,7 @@ export function DatasourceWizard({ workspaceId = "default", onWorkspaceChange, e
     setForm((current) => ({
       ...emptyForm(current.workspace, null), name: current.name, workspace: current.workspace,
       driver, port: DEFAULT_PORTS[driver] || "",
-      tls: driver === "sqlserver",
+      tls: ["sqlserver", "opensearch"].includes(driver),
       auth: ["postgresql", "timescaledb", "mysql", "sqlserver"].includes(driver) ? "password" : driver === "influxdb" ? "token" : "none",
     }));
     setValidatedProfile(null);
@@ -260,6 +262,7 @@ export function DatasourceWizard({ workspaceId = "default", onWorkspaceChange, e
               {MANAGED_TEXT_AUTH.has(form.auth) ? <><div className="connection-editor__segment" role="group" aria-label="凭据来源"><button type="button" className={form.source === "create" ? "is-active" : ""} aria-pressed={form.source === "create"} onClick={() => update("source", "create")}>新建受管凭据</button><button type="button" className={form.source === "existing" ? "is-active" : ""} aria-pressed={form.source === "existing"} onClick={() => update("source", "existing")}>已有 Secret ID</button></div>{form.source === "create" ? textInput("rawSecret", form.auth === "password" ? "密码" : "凭据值", { type: "password", autoComplete: "new-password", hint: "凭据由后端加密保存，不会写入连接地址。" }) : textInput("secretId", "Secret ID", { hint: "使用已保存在受管凭据库中的凭据。" })}</> : null}
               {["private_key", "service_account"].includes(form.auth) ? textInput("secretId", "已有 Secret ID") : null}
               {["none", "cloud_identity"].includes(form.auth) ? <p className="connection-editor__hint">当前认证方式不需要单独输入凭据。</p> : null}
+              {form.driver === "qdrant" && form.auth === "api_key" && !form.tls ? <label className="connection-editor__hint"><input type="checkbox" checked={form.allowInsecureKeyHttp} onChange={(event) => update("allowInsecureKeyHttp", event.target.checked)} /> 我确认在未加密的 HTTP 连接中发送 API Key</label> : null}
             </div></section></div><aside className="connection-editor__aside"><span className="eyebrow">连接路径</span><h3>从后端验证连接</h3><p>Qaneris 后端直接连接数据库。浏览器不会接收数据库密码。</p><div className="connection-editor__flow"><span>浏览器</span><i>→</i><span>后端</span><i>→</i><span>{driverName(form.driver)}</span></div><p>如服务器要求证书，请切换到“SSL / 证书”上传 CA、客户端证书和私钥。</p></aside></div> : null}
           {tab === "tls" ? <div className="connection-editor__layout"><div className="connection-editor__primary">{capability ? <><div className="connection-editor__tls-toggle"><div><h2>启用加密连接</h2><p>验证服务器证书和主机名，避免连接到错误的服务器。</p></div><label className="connection-switch"><input type="checkbox" checked={form.tls} onChange={(event) => update("tls", event.target.checked)} /><span /></label></div>{form.tls ? <>
             {capability.custom_ca ? <section className="connection-editor__section"><h2>服务器证书</h2><p className="connection-editor__hint">上传云服务商提供的 CA 证书。使用系统信任链时可留空。</p>{fileInput("caFile", "CA 证书", secretSummary(form.caId, form.caFile), ".pem,.crt,.cer")}</section> : null}

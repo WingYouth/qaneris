@@ -3,6 +3,7 @@
 import re
 from uuid import uuid4
 
+from qaneris.application.inventory import is_workspace_inventory_question
 from qaneris.capabilities.ask import AskCapability
 from qaneris.common.errors import QanerisError
 from qaneris.common.redaction import safe_error
@@ -352,8 +353,13 @@ class RunOrchestrator:
         selected_datasource = (
             conversation.datasource_scope[0] if len(conversation.datasource_scope) == 1 else None
         )
-        if self.federation_router and (len(conversation.datasource_scope) != 1 or
-                                       run.run_kind == "federated"):
+        workspace_inventory = (
+            not conversation.datasource_scope
+            and is_workspace_inventory_question(resolved)
+        )
+        if self.federation_router and not workspace_inventory and (
+            len(conversation.datasource_scope) != 1 or run.run_kind == "federated"
+        ):
             allowed = ready_scope(
                 self.federation_service, conversation.workspace_id,
                 conversation.datasource_scope,

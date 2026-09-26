@@ -69,11 +69,20 @@ class SearchAdapter(DataSourceAdapter):
             elif driver == "opensearch":
                 from opensearchpy import OpenSearch
 
-                tls_options = {"verify_certs": bool(self.connection.get("verify_certs", True))}
-                if ssl_context is not None:
-                    tls_options["ssl_context"] = ssl_context
+                # OpenSearch ignores verify_certs when an SSLContext is supplied and warns
+                # about the conflicting options. The context already enforces verification.
+                tls_options: dict[str, Any] = (
+                    {"ssl_context": ssl_context} if ssl_context is not None
+                    else {"verify_certs": bool(self.connection.get("verify_certs", True))}
+                )
                 if self.connection.get("use_ssl") is not None:
                     tls_options["use_ssl"] = bool(self.connection["use_ssl"])
+                if ssl_context is not None and self.connection.get("server_name"):
+                    # opensearch-py omits ssl_assert_hostname from its urllib3 pool when an
+                    # SSLContext is present. Supply that one pool option without weakening
+                    # certificate-chain validation or the context's TLS version floor.
+                    tls_options["ssl_assert_hostname"] = self.connection["server_name"]
+                    tls_options["connection_class"] = self._opensearch_hostname_connection()
                 client = OpenSearch(
                     hosts=self._addresses(),
                     http_auth=self._auth(),
@@ -88,6 +97,22 @@ class SearchAdapter(DataSourceAdapter):
         finally:
             client.close()
 
+    @staticmethod
+    def _opensearch_hostname_connection():
+        from opensearchpy.connection.http_urllib3 import Urllib3HttpConnection
+
+        class VerifiedHostnameConnection(Urllib3HttpConnection):
+            def __init__(self, *args, ssl_assert_hostname=None, **kwargs):
+                self._certificate_hostname = ssl_assert_hostname
+                super().__init__(*args, ssl_assert_hostname=ssl_assert_hostname, **kwargs)
+
+            def _create_urllib3_pool(self) -> None:
+                super()._create_urllib3_pool()
+                if self._certificate_hostname and self.use_ssl:
+                    self.pool.assert_hostname = self._certificate_hostname
+
+        return VerifiedHostnameConnection
+
     def _auth(self) -> tuple[str, str] | None:
         if not self.connection.get("username"):
             return None
@@ -97,8 +122,26 @@ class SearchAdapter(DataSourceAdapter):
         return str(self.connection.get("index_pattern", "*"))
 
     def test_connection(self) -> None:
-        with self._client() as client:
-            client.indices.get_mapping(index=self._mapping_index_pattern())
+        try:
+            with self._client() as client:
+                client.indices.get_mapping(index=self._mapping_index_pattern())
+        except Exception as error:
+            if self._driver() == "opensearch":
+                detail = str(error).casefold()
+                if (
+                    not (self.connection.get("tls") or self.connection.get("use_ssl"))
+                    and ("remotedisconnected" in detail or "remote end closed connection" in detail)
+                ):
+                    raise ConnectionError(
+                        "OpenSearch 服务器关闭了明文 HTTP 连接。请在 SSL / 证书中开启"
+                        "“启用加密连接”（HTTPS）；不要求上传客户端证书。"
+                    ) from error
+                if "certificate verify failed" in detail or "certificate_verify_failed" in detail:
+                    raise ConnectionError(
+                        "OpenSearch HTTPS 证书验证失败。请上传服务端 CA 证书，"
+                        "并确认连接地址包含在服务器证书的 DNS/IP 名称中。"
+                    ) from error
+            raise
 
     @staticmethod
     def _flatten_properties(properties: dict[str, Any], prefix: str = "") -> list[FieldInfo]:

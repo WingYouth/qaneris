@@ -14,6 +14,10 @@ from uuid import uuid4
 from qaneris.adapters import create_adapter
 from qaneris.adapters.registry import list_registered_adapters
 from qaneris.answering import AnswerComposer
+from qaneris.application.inventory import (
+    is_selected_source_inventory_question,
+    is_workspace_inventory_question,
+)
 from qaneris.catalog import Catalog
 from qaneris.common.errors import (
     DatasourceConnectionTestError,
@@ -851,7 +855,12 @@ class QanerisService:
                 )
                 response = self._execute_explicit_sql(request, datasource, step)
             else:
-                self._require_ready_scope(request.workspace_id, request.datasource_id)
+                workspace_inventory = (
+                    request.datasource_id is None
+                    and is_workspace_inventory_question(request.question)
+                )
+                if not workspace_inventory:
+                    self._require_ready_scope(request.workspace_id, request.datasource_id)
                 if self._is_schema_inventory_question(request.question):
                     response = self._schema_inventory_response(request)
                     if response.status == AskStatus.COMPLETED:
@@ -860,9 +869,11 @@ class QanerisService:
                             {
                                 "stage": "retrieval",
                                 "datasource_id": request.datasource_id,
-                                "scan_version": response.analysis["scan_version"],
+                                "scan_version": response.analysis.get("scan_version"),
                                 "candidate_count": response.result.row_count,
-                                "retrieval_path": "published_schema",
+                                "retrieval_path": (
+                                    "workspace_catalog" if workspace_inventory else "published_schema"
+                                ),
                             },
                         )
                     event_type = (
@@ -1329,6 +1340,8 @@ class QanerisService:
     @staticmethod
     def _is_schema_inventory_question(question: str) -> bool:
         """Recognize explicit structure discovery without intercepting business queries."""
+        if is_workspace_inventory_question(question) or is_selected_source_inventory_question(question):
+            return True
         compact = re.sub(r"\s+", "", question).casefold()
         terms = (
             "表结构", "数据结构", "数据库结构", "有哪些表", "有什么表",
@@ -1361,9 +1374,58 @@ class QanerisService:
             )
         )
 
+    def _workspace_inventory_response(self, request: AskRequest) -> AskResponse:
+        """Describe registered sources and their scanned datasets without opening databases."""
+        sources = self.catalog.list_datasources(request.workspace_id)
+        ready_ids = {source.id for source in sources if source.status == "ready"}
+        datasets_by_source: dict[str, list[DatasetInfo]] = {source.id: [] for source in sources}
+        for dataset in self.catalog.list_datasets(request.workspace_id):
+            if dataset.datasource_id in ready_ids:
+                datasets_by_source[dataset.datasource_id].append(dataset)
+
+        rows: list[dict[str, str]] = []
+        for source in sources:
+            datasets = datasets_by_source[source.id]
+            for dataset in datasets or [None]:
+                rows.append(
+                    {
+                        "数据源": source.name,
+                        "驱动": source.driver or "未知",
+                        "状态": "已扫描" if source.id in ready_ids else "未就绪",
+                        "数据集": dataset.name if dataset else "—",
+                        "类型": dataset.kind if dataset else "—",
+                    }
+                )
+        visible = rows[: request.max_rows]
+        dataset_count = sum(len(datasets) for datasets in datasets_by_source.values())
+        ready_count = len(ready_ids)
+        answer = (
+            f"当前工作区有 {len(sources)} 个数据源，其中 {ready_count} 个已扫描，"
+            f"共登记 {dataset_count} 个数据集。下表按数据源列出已扫描的数据集。"
+            if sources else "当前工作区还没有数据源。请先添加并扫描数据源。"
+        )
+        if len(rows) > len(visible):
+            answer += " 当前结果受行数上限限制，未列出全部数据集。"
+        return AskResponse(
+            question=request.question,
+            status=AskStatus.COMPLETED,
+            answer=answer,
+            result=NormalizedResult(
+                source=request.workspace_id,
+                dataset="workspace_inventory",
+                columns=["数据源", "驱动", "状态", "数据集", "类型"],
+                rows=visible,
+                row_count=len(visible),
+                truncated=len(rows) > len(visible),
+            ),
+            analysis={"result_kind": "workspace_inventory", "summary_source": "catalog"},
+        )
+
     def _schema_inventory_response(self, request: AskRequest) -> AskResponse:
         """Answer source structure from the published graph, without model or row access."""
         if not request.datasource_id:
+            if is_workspace_inventory_question(request.question):
+                return self._workspace_inventory_response(request)
             message = "请先选择一个已扫描的数据源，再查看它有哪些表和字段。"
             return AskResponse(
                 question=request.question,

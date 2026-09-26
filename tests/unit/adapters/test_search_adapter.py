@@ -54,6 +54,30 @@ def test_opensearch_uses_configured_business_index_pattern_for_connection_and_sc
     assert adapter.scan_metadata() == []
 
 
+def test_opensearch_plain_http_disconnect_explains_tls_switch() -> None:
+    class Indices:
+        def get_mapping(self, *, index: str) -> None:
+            raise ConnectionError("RemoteDisconnected('Remote end closed connection without response')")
+
+    class Client:
+        indices = Indices()
+
+    adapter = SearchAdapter("ds_opensearch", {"driver": "opensearch", "url": "http://example:9201", "tls": False})
+
+    @contextmanager
+    def fake_client():
+        yield Client()
+
+    adapter._client = fake_client  # type: ignore[method-assign]
+    try:
+        adapter.test_connection()
+    except ConnectionError as error:
+        assert "开启" in str(error)
+        assert "HTTPS" in str(error)
+    else:
+        raise AssertionError("the HTTP disconnect must fail with TLS guidance")
+
+
 def test_search_adapter_accepts_custom_index_patterns_without_business_coupling() -> None:
     for pattern in ("company-*", "logs-*"):
         class Indices:

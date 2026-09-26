@@ -178,7 +178,7 @@ TLS_DRIVER_MATRIX: dict[str, TLSDriverSpec] = {
             TLSStrategy.SSL_CONTEXT,
             custom_ca=True,
             mtls=True,
-            server_name_override=False,
+            server_name_override=True,
             tls13_control=True,
         ),
         _spec(

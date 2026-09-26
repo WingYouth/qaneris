@@ -409,6 +409,21 @@ def test_multi_source_scope_blocks_without_widening(tmp_path):
     assert not ask.questions
 
 
+def test_workspace_inventory_skips_source_selection(tmp_path):
+    conversations, runs, ask, runtime = build(tmp_path)
+
+    class UnexpectedRouter:
+        def route(self, *_):
+            raise AssertionError("workspace inventory must not select one datasource")
+
+    runtime.federation_router = UnexpectedRouter()
+    conversation = ConversationService(conversations).create()
+    run = runtime.create(conversation.conversation_id, "当前工作区的都有哪些数据？")
+
+    assert runs.get(run.run_id).status == RunStatus.COMPLETED
+    assert ask.questions == ["当前工作区的都有哪些数据？"]
+
+
 def test_standalone_question_runs_without_context_model(tmp_path):
     conversations, runs, ask, runtime = build(tmp_path)
     runtime.resolver = ConversationContextResolver(None)

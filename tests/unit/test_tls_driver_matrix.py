@@ -37,7 +37,7 @@ ROADSHOW_MATRIX = {
     "cassandra": ("ssl_context", True, True, True, True),
     "clickhouse": ("clickhouse_files", True, True, True, False),
     "elasticsearch": ("ssl_context", True, True, False, True),
-    "opensearch": ("ssl_context", True, True, False, True),
+    "opensearch": ("ssl_context", True, True, True, True),
     "influxdb": ("influxdb_files", True, True, False, False),
     "neo4j": ("ssl_context", True, True, False, True),
     "milvus": ("milvus_files", True, True, True, False),
