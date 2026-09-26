@@ -277,13 +277,15 @@ CLI 只能编排 Application Service。JSON/JSONL 机器输出用于验收；不
 `qaneris shell` 是前面所有命令的交互式外壳（inline TUI：横幅、常驻状态行由终端 UI 绘制，命令自身的输出留在终端原生 scrollback，不使用备用屏）。它**不新增任何产品行为**：
 
 - 每行经 shell 分词后交给与一次性命令完全相同的 `main()` 入口，因此输出、退出码与错误规则逐字一致；shell 不解析命令、不渲染命令专属结果、不接触 Application Service / Catalog / Adapter。
-- 会话内建词只有 `exit` / `quit` / `help` / `clear`，且仅在该词不是已注册命令时才生效，因此内建词永远不会遮蔽命令树中的同名命令。
+- 会话内建词只有 `exit` / `quit` / `help` / `clear`（`?` 是 `help` 的别名），且仅在该词不是已注册命令时才生效，因此内建词永远不会遮蔽命令树中的同名命令。每一行在分词后会剥掉行首重复的程序名，因此从 README 或上级 scrollback 复制来的 `qaneris source list` 与直接输入 `source list` 等价（程序名不可能是子命令，剥离不会改变任何合法行的含义）；只输入程序名时返回帮助文本。会话内再次输入 `shell` 不会嵌套第二层会话，而是打印 `qaneris shell` 的帮助 —— 外层会话已经确定了历史与横幅选项，再跑一次无法兑现这些选项。
 - `argparse` 用 `SystemExit` 表达 `--help` 与用法错误（退出码 0 / 2）；shell 把它转成该命令的退出码，**一次打错不会结束会话**。命令未预期的异常按类型上报，不显示任意消息（与一次性边界一致）。
 - 单条命令的退出码显示在状态行，**不作为会话进程的退出码**；会话正常结束时退出码为 0。Ctrl-C 取消当前输入行而不退出，Ctrl-D 退出。
 - 非终端 stdin 一律拒绝（退出码 2 并提示改用一次性命令），避免脚本隐式进入交互模式；缺少可选依赖时提示 `pip install -e '.[shell]'`，不输出 traceback。
 - **Secret 边界不变**：shell 不提供任何携带 secret 原文的选项。`credential add` / `certificate add-client` 的交互式输入仍走 `getpass`（直读控制终端），不经过 shell 的自绘输入行，因此**不会进入 readline 历史文件**。§7.1 的 Secret Input Contract 对交互式会话同样适用。
 - 命令历史写入 `.tools/shell_history`（目录 0700 / 文件 0600，`.tools/` 已被 Git 忽略），可用 `--no-history` 关闭；历史不可用时退回内存历史，不拒绝启动。
 - 会话进程会把 Neo4j driver 的 DBMS notification logger（`neo4j.notifications`）提升到 ERROR：这类记录描述的是服务器而非命令，在一次性报告中无害，但在会话里会横穿提示符。该设置仅作用于会话进程，API 与一次性命令行为不变。
+- **展示层约定**（仅影响观感，不改变任何命令输出）：横幅卡片随终端宽度自适应——两个分区在放得下时并排、放不下时纵向堆叠，分隔线由 `rich` 按终端宽度绘制而非固定长度；颜色一律用 ANSI 命名色（跟随用户主题），品牌青为唯一强调色，`0` 退出码为绿、`1` / `2` 为红。状态行覆盖 `prompt_toolkit` 默认给 `bottom-toolbar` 的 `reverse`，否则退出码配色会被整体反色。横幅内的 model / 凭据目录 / catalog 是**数据而非 markup**，一律以文本追加（含方括号的路径因此原样显示），家目录下的路径按 `~` 缩写（仅显示层缩写，取值不变）。
+
 - 依赖 `prompt_toolkit` / `rich` 为**可选依赖**（`[shell]` extra，独立入口 `qaneris-shell`）；核心安装、API、MCP 与所有一次性命令不依赖它们。
 
 ## 8. MCP + Skill Contract(MCP与Skill契约)

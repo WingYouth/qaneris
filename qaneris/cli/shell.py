@@ -46,7 +46,10 @@ _EXIT_INTERRUPTED = 130
 
 #: Session-local words that never reach the command tree. They are only honoured when the word is
 #: not a registered command, so a future ``qaneris help`` cannot be silently shadowed.
-_BUILTINS = ("exit", "quit", "help", "clear")
+#:
+#: ``?`` is the conventional terminal shortcut for help, and the status line advertises it, so the
+#: session honours it here rather than leaving the hint pointing at a word that does nothing.
+_BUILTINS = ("?", "clear", "exit", "help", "quit")
 
 #: Where the session remembers its input. ``.tools/`` is this repository's gitignored runtime
 #: directory, already excluded from version control.
@@ -57,9 +60,69 @@ _HISTORY_FILE_MODE = 0o600
 
 _TOOLBAR_COMMAND_LIMIT = 60
 
+#: The program's own name. Commands are usually written with it in a terminal or a README, so a
+#: line may arrive as ``qaneris source list``. It is stripped rather than rejected: the token can
+#: never be a subcommand, so removing it cannot change which command was meant.
+_PROGRAM_NAME = "qaneris"
+
+#: Terminal-agnostic palette. Named ANSI colours rather than RGB values: they resolve against the
+#: user's own theme, so the session stays legible on a light background and a dark one alike.
+#: ``brand`` is the single accent; everything structural is neutral so the accent keeps meaning.
+_THEME = {
+    "q.brand": "bold cyan",
+    "q.title": "bold",
+    "q.muted": "dim",
+    "q.ok": "bold green",
+    "q.warn": "yellow",
+    "q.fail": "bold red",
+    "q.key": "cyan",
+    "q.rule": "dim cyan",
+}
+
+#: The commands the banner offers as a starting point. Each entry is the command and the short
+#: description of what it does; the list is deliberately short, because the banner is a signpost
+#: rather than the help text - ``help`` is one keystroke away for the full tree.
+_BANNER_STARTS = (
+    ("doctor", "check the runtime environment"),
+    ("source list", "list datasources"),
+    ('ask "..."', "ask one question"),
+)
+
+#: Horizontal space between the banner's two sections, and the space the card itself spends on
+#: borders and padding. Both are subtracted before deciding whether two columns will fit.
+_BANNER_GAP = 6
+_BANNER_CARD_OVERHEAD = 6
+
 #: Third-party loggers that describe the database server instead of this command. Raising them to
 #: ERROR keeps the prompt readable; they are not part of the product's own output contract.
 _QUIESCED_LOGGERS = ("neo4j.notifications",)
+
+#: A rounded prompt: the shape separates the session's own input line from command output without
+#: spending a second line the way a bracketed marker would.
+_PROMPT = [
+    ("class:q.prompt", "\u256d\u2500 "),
+    ("class:q.prompt.chevron", "\u276f "),
+]
+
+_PROMPT_CONTINUATION = [("class:q.prompt", "\u2502 ")]
+
+#: prompt_toolkit styles for the pieces the session draws itself.
+#:
+#: ``bottom-toolbar`` is overridden deliberately. prompt_toolkit's default style paints that
+#: class with ``reverse``, which turns the status line into a bright inverted strip - on a light
+#: theme it renders as a solid light bar that fights the command output above it, and the
+#: per-segment colours below are inverted with it. ``noreverse`` cancels that inherited attribute
+#: so the strip is the colour stated here and the exit-code colours mean what they say.
+_PROMPT_STYLE = {
+    "bottom-toolbar": "noreverse bg:ansibrightblack",
+    "q.prompt": "ansicyan",
+    "q.prompt.chevron": "ansicyan bold",
+    "q.toolbar": "bg:ansibrightblack ansigray",
+    "q.toolbar.label": "bg:ansibrightblack ansigray bold",
+    "q.toolbar.ok": "bg:ansibrightblack ansigreen bold",
+    "q.toolbar.fail": "bg:ansibrightblack ansired bold",
+    "q.toolbar.hint": "bg:ansibrightblack ansigray italic",
+}
 
 _MISSING_DEPENDENCIES_MESSAGE = (
     "Configuration error: the interactive shell needs its optional dependencies.\n"
@@ -115,6 +178,21 @@ def split_line(line: str) -> list[str] | None:
         return shlex.split(line)
     except ValueError:
         return None
+
+
+def normalize_tokens(tokens: Sequence[str]) -> list[str]:
+    """Drop a repeated program name from the front of a line.
+
+    Copying a command out of a README or back out of the scrollback produces the fully qualified
+    form, and inside the session that prefix is redundant. It is safe to remove because the
+    program's own name can never be a subcommand, so no valid line is altered by dropping it.
+    An empty result means the user typed the program name alone, which the caller answers with
+    the help text - the same thing the one-shot entry point does.
+    """
+    remaining = list(tokens)
+    while remaining and remaining[0] == _PROGRAM_NAME:
+        remaining.pop(0)
+    return remaining
 
 
 def run_tokens(
@@ -203,57 +281,225 @@ def _default_history_path() -> Path:
     return Path(_HISTORY_DIRECTORY) / _HISTORY_FILENAME
 
 
+def _exit_style(exit_code: int | None) -> str:
+    """Colour the exit code by what it means, not by whether the command printed anything.
+
+    0 and 1 are the product's own outcomes; 2 is a usage error and 130 an interrupted command.
+    An unknown or absent code stays neutral rather than borrowing a verdict.
+    """
+    if exit_code == 0:
+        return "class:q.toolbar.ok"
+    if exit_code in {1, 2}:
+        return "class:q.toolbar.fail"
+    return "class:q.toolbar"
+
+
 def _toolbar_text(state: ShellState) -> list[tuple[str, str]]:
     """Build the status line as ``(style, text)`` pairs.
 
     Pairs rather than markup: the last command is user input, and a markup string would render a
-    bracketed value as styling instead of as the text the user typed.
+    bracketed value as styling instead of as the text the user typed. The pairing is also what lets
+    the exit code carry its own colour without the command text inheriting it.
     """
     command = state.last_command
     if len(command) > _TOOLBAR_COMMAND_LIMIT:
         command = command[: _TOOLBAR_COMMAND_LIMIT - 3] + "..."
-    code = "-" if state.last_exit_code is None else str(state.last_exit_code)
+    code = "\u2013" if state.last_exit_code is None else str(state.last_exit_code)
     return [
-        ("bold", " last "),
-        ("", command),
-        ("bold", "  exit "),
-        ("", code),
-        ("bold", "  commands "),
-        ("", str(state.executed)),
-        ("italic", "  ? help · Ctrl-D exit"),
+        ("class:q.toolbar.label", " qaneris "),
+        ("class:q.toolbar", command),
+        ("class:q.toolbar.label", "  exit "),
+        (_exit_style(state.last_exit_code), code),
+        ("class:q.toolbar.label", "  run "),
+        ("class:q.toolbar", str(state.executed)),
+        ("class:q.toolbar.hint", "   help \u00b7 Ctrl-D exit"),
     ]
 
 
-def _print_banner(console: Any, table_class: Any, panel_class: Any) -> None:
-    """Draw the welcome panel. Presentation only: it states no capability of its own."""
+def _banner_facts() -> list[tuple[str, str]]:
+    """Read the facts the banner shows, each degrading to a neutral value on its own.
+
+    Everything here is already public to the process - the model the session would call, where its
+    catalog lives, which store holds credentials. None of it is a secret, and none of it decides
+    behaviour: a value that cannot be resolved reports that instead of failing the session.
+    """
+    from qaneris.common.environment import load_runtime_environment
+    from qaneris.llm import resolve_model_profile
+
+    # The one-shot CLI loads the dotenv file inside ``main()``, which has not run yet when the
+    # banner is drawn. Loading it here is the same call that ``main()`` makes and is idempotent -
+    # an already-exported value still wins - so the banner reports the environment the session is
+    # actually about to use rather than the one this process started with. A file that cannot be
+    # read is reported as an absent value below instead of ending the session before it starts.
+    try:
+        load_runtime_environment()
+        environment_error = None
+    except Exception as error:  # noqa: BLE001 - the banner reports it rather than raising
+        environment_error = type(error).__name__
+
+    if environment_error is not None:
+        return [("environment", f"unreadable ({environment_error})")]
+
+    facts: list[tuple[str, str]] = []
+    try:
+        profile = resolve_model_profile()
+    except Exception:  # noqa: BLE001 - a banner must never be the reason a session fails
+        profile = None
+    facts.append(("model", profile.model if profile is not None else "not configured"))
+
+    store = os.getenv("QANERIS_SECRET_STORE_DIR", "").strip()
+    facts.append(("credentials", store if store else "not configured"))
+
+    catalog = os.getenv("QANERIS_CATALOG", "").strip()
+    facts.append(("catalog", catalog or "qaneris.db (default)"))
+    return facts
+
+
+def _display_path(value: str) -> str:
+    """Shorten a path under the home directory to ``~``. Display only; the value is unchanged.
+
+    The credential store and the catalog are the two facts most likely to be long absolute paths,
+    and an abbreviated home directory is both shorter and easier to read. A value that is not a
+    path under the home directory - a model name, a word like ``not configured`` - is returned
+    untouched.
+    """
+    try:
+        relative = Path(value).expanduser().relative_to(Path.home())
+    except (RuntimeError, ValueError):
+        return value
+    return str(Path("~") / relative)
+
+
+def _banner_section(
+    title: str, rows: Sequence[tuple[str, str]], key_style: str, value_style: str, text_class: Any
+) -> Any:
+    """Build one titled block: a heading, then ``key   value`` rows aligned on a shared gutter.
+
+    The gutter is computed from the longest key, so the values line up without a nested grid -
+    a nested grid asks rich to divide the remaining width between two cells, which is what made
+    a long credential-store path ellipsise even when the terminal had room for it.
+    """
+    gutter = max(len(key) for key, _ in rows) + 2
+    block = text_class(title, style="q.title")
+    for key, value in rows:
+        block.append("\n  ")
+        block.append(key.ljust(gutter), style=key_style)
+        block.append(value, style=value_style)
+    return block
+
+
+def _banner_width(rows: Sequence[tuple[str, str]], title: str) -> int:
+    """Return the width one section needs to render without wrapping a single row."""
+    gutter = max(len(key) for key, _ in rows) + 2
+    return max(len(title), max(2 + gutter + len(value) for _, value in rows))
+
+
+def _print_banner(console: Any, group_class: Any, text_class: Any) -> None:
+    """Draw the welcome card.
+
+    Presentation only: it states no capability of its own. Three facts shape the layout. The card
+    spans the terminal, so the rule cannot be a fixed-width string - a hard-coded line either
+    stops halfway across a wide terminal or wraps on a narrow one. Every value below the heading
+    is *data* - a model name, a directory, a catalog path - so each is appended as text rather
+    than interpolated into markup, where a path containing square brackets would be read as a
+    style tag and silently lose the bracketed part. And the two sections sit side by side only
+    when they both fit: below that width they stack, which costs a few lines but never wraps a
+    path in the middle of a value.
+    """
     from qaneris import __version__
 
-    grid = table_class.grid(padding=(0, 3))
-    grid.add_column(justify="left")
-    grid.add_column(justify="left")
-    grid.add_row(
-        f"[bold]Qaneris[/bold] {__version__}\n\n[dim]interactive session[/dim]",
-        "[bold]Getting started[/bold]\n"
-        "Type a command, or [cyan]help[/cyan] for the full list.\n"
-        '[cyan]doctor[/cyan] · [cyan]source list[/cyan] · [cyan]ask "..."[/cyan]\n\n'
-        "[bold]Keys[/bold]\n"
-        "Ctrl-C cancels the line · Ctrl-D exits",
+    heading = text_class()
+    heading.append("\u25c6 ", style="q.brand")
+    heading.append("QANERIS", style="q.title")
+    heading.append(f"  v{__version__}", style="q.muted")
+    heading.append("  \u00b7  ", style="q.rule")
+    heading.append("interactive session over the qaneris command tree", style="q.muted")
+
+    starts_rows = list(_BANNER_STARTS)
+    environment_rows = [(label, _display_path(value)) for label, value in _banner_facts()]
+    starts = _banner_section("Start here", starts_rows, "q.key", "q.muted", text_class)
+    environment = _banner_section("Environment", environment_rows, "q.muted", "dim", text_class)
+
+    columns = group_class.grid(padding=(0, _BANNER_GAP))
+    columns.add_column(justify="left", vertical="top")
+    columns.add_column(justify="left", vertical="top")
+    available = console.width - _BANNER_CARD_OVERHEAD
+    required = (
+        _banner_width(starts_rows, "Start here")
+        + _banner_width(environment_rows, "Environment")
+        + _BANNER_GAP
     )
-    console.print(panel_class(grid, title="qaneris shell", border_style="cyan", expand=False))
+    if required <= available:
+        columns.add_row(starts, environment)
+    else:
+        columns.add_row(starts)
+        columns.add_row(text_class(""))
+        columns.add_row(environment)
+
+    body = group_class.grid(padding=(0, 0))
+    body.add_column(justify="left")
+    body.add_row(heading)
+    body.add_row(text_class(""))
+    body.add_row(columns)
+
+    console.print()
+    console.print(
+        _banner_panel(body, text_class, "qaneris shell", "Ctrl-C cancel \u00b7 Ctrl-D exit")
+    )
+    console.print()
+
+
+def _banner_panel(body: Any, text_class: Any, title: str, subtitle: str) -> Any:
+    """Wrap the banner body in the rounded card the session is known by.
+
+    Imported here rather than at module import time for the same reason as the rest of the
+    optional toolkit: ``rich`` is a ``[shell]`` extra and the one-shot commands must not need it.
+    """
+    from rich.box import ROUNDED
+    from rich.panel import Panel
+
+    return Panel(
+        body,
+        box=ROUNDED,
+        border_style="q.rule",
+        padding=(1, 2),
+        title=text_class(title, style="q.title"),
+        title_align="left",
+        subtitle=text_class(subtitle, style="q.muted"),
+        subtitle_align="right",
+    )
 
 
 def _render_outcome(outcome: CommandOutcome, state: ShellState, console: Any) -> None:
-    """Record one outcome and report only what the command itself did not already print."""
+    """Record one outcome and report only what the command itself did not already print.
+
+    A command that reported its own outcome prints nothing extra: the status line already carries
+    the exit code, and repeating it here would put the same fact in two places. Only the two cases
+    the command cannot have described - an interruption and an unexpected exception - are drawn.
+    """
     state.last_exit_code = outcome.exit_code
     state.executed += 1
     if outcome.cancelled:
-        console.print("[yellow]Cancelled.[/yellow]")
+        console.print(
+            "[q.warn]\u25b8 cancelled[/q.warn] [q.muted]\u2014 the session is unchanged[/q.muted]"
+        )
         return
     if outcome.failure_type is not None:
         console.print(
-            f"[red]{outcome.failure_type}[/red] ended the command before it could report. "
-            "The command's own messages, if any, are above."
+            f"[q.fail]\u25b8 {outcome.failure_type}[/q.fail] "
+            "[q.muted]ended the command before it could report[/q.muted]"
         )
+
+
+def _is_nested_session(tokens: Sequence[str], commands: frozenset[str]) -> bool:
+    """Report whether a line would start a second session inside this one.
+
+    ``shell`` is a real command, so it has to be checked before the builtin branch rather than
+    after it - the builtin branch deliberately defers to any registered command. Only the bare
+    word is redirected: the outer session has already settled the history and banner options this
+    line could carry, so running it again could not honour them.
+    """
+    return bool(tokens) and tokens[0] == SHELL_COMMAND and SHELL_COMMAND in commands
 
 
 def _handle_builtin(name: str, *, dispatch: Callable[[Sequence[str]], int], console: Any) -> bool:
@@ -263,7 +509,8 @@ def _handle_builtin(name: str, *, dispatch: Callable[[Sequence[str]], int], cons
     if name == "clear":
         console.clear()
         return True
-    # ``help`` is the command tree's own help text, so the session never keeps a second copy of it.
+    # ``help`` (and its ``?`` alias) is the command tree's own help text, so the session never
+    # keeps a second copy of it that could drift from the commands actually installed.
     run_tokens(["--help"], dispatch=dispatch)
     return True
 
@@ -283,9 +530,11 @@ def run_shell_command(args: argparse.Namespace) -> int:
         from prompt_toolkit import PromptSession
         from prompt_toolkit.history import FileHistory, InMemoryHistory
         from prompt_toolkit.patch_stdout import patch_stdout
+        from prompt_toolkit.styles import Style
         from rich.console import Console
-        from rich.panel import Panel
         from rich.table import Table
+        from rich.text import Text
+        from rich.theme import Theme
     except ImportError:
         print(_MISSING_DEPENDENCIES_MESSAGE, file=sys.stderr)
         return _EXIT_CONFIGURATION
@@ -293,7 +542,9 @@ def run_shell_command(args: argparse.Namespace) -> int:
     from qaneris.cli.main import main as dispatch
 
     quiesce_driver_logging()
-    console = Console()
+    # Colour is turned off by rich itself when stdout is not a terminal or NO_COLOR is set, so the
+    # palette needs no separate check here.
+    console = Console(theme=Theme(_THEME), highlight=False)
     state = ShellState()
     commands = registered_commands()
 
@@ -303,15 +554,19 @@ def run_shell_command(args: argparse.Namespace) -> int:
         else prepare_history(args.history.expanduser() if args.history else _default_history_path())
     )
     history = FileHistory(str(history_path)) if history_path else InMemoryHistory()
-    session = PromptSession(history=history)
+    session = PromptSession(history=history, style=Style.from_dict(_PROMPT_STYLE))
 
     if not args.no_banner:
-        _print_banner(console, Table, Panel)
+        _print_banner(console, Table, Text)
 
     while True:
         try:
             with patch_stdout():
-                line = session.prompt("qaneris> ", bottom_toolbar=lambda: _toolbar_text(state))
+                line = session.prompt(
+                    _PROMPT,
+                    prompt_continuation=_PROMPT_CONTINUATION,
+                    bottom_toolbar=lambda: _toolbar_text(state),
+                )
         except KeyboardInterrupt:
             # Ctrl-C at an empty prompt clears the line and keeps the session, like a shell.
             continue
@@ -324,7 +579,24 @@ def run_shell_command(args: argparse.Namespace) -> int:
 
         tokens = split_line(line)
         if tokens is None:
-            console.print("[red]Cannot parse line:[/red] unmatched quote.")
+            console.print("[q.fail]\u25b8 cannot parse[/q.fail] [q.muted]unmatched quote[/q.muted]")
+            continue
+
+        tokens = normalize_tokens(tokens)
+        if not tokens:
+            # The program name on its own. The one-shot entry point answers this with its help
+            # text, and the session does the same rather than reporting an unknown command.
+            _handle_builtin("help", dispatch=dispatch, console=console)
+            continue
+
+        if _is_nested_session(tokens, commands):
+            # ``shell`` inside the session would start a second session nested in this one: the
+            # banner is drawn again, every builtin gains a second meaning, and leaving costs two
+            # ``exit`` lines. The user is already in a session, so the only useful answer this line
+            # can produce is the ``shell`` command's own help.
+            _render_outcome(
+                run_tokens([SHELL_COMMAND, "--help"], dispatch=dispatch), state, console
+            )
             continue
 
         if tokens[0] in _BUILTINS and tokens[0] not in commands:
@@ -335,7 +607,19 @@ def run_shell_command(args: argparse.Namespace) -> int:
         state.last_command = line
         _render_outcome(run_tokens(tokens, dispatch=dispatch), state, console)
 
-    console.print("[dim]bye[/dim]")
+    console.print()
+    # The closing line reports where history actually went for *this* session: claiming a file
+    # after ``--no-history``, or naming the default file after ``--history``, would both be wrong.
+    # Built as text rather than markup: a history path is an argument the user chose, and a
+    # directory whose name contains square brackets would otherwise be parsed as a style tag and
+    # print a different path than the one actually written.
+    farewell = Text("goodbye \u00b7 ", style="q.muted")
+    if history_path is not None:
+        farewell.append("history saved to ", style="q.muted")
+        farewell.append(str(history_path), style="q.muted")
+    else:
+        farewell.append("no history was kept", style="q.muted")
+    console.print(farewell)
     return _EXIT_OK
 
 
