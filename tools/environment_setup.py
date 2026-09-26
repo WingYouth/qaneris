@@ -74,6 +74,13 @@ NEO4J_CONTAINER_PORTS = (7687, 7474)
 API_PORT = 8000
 FRONTEND_PORT = 5173
 
+#: Where the operator actually goes. Printed on success and handed to the browser.
+FRONTEND_URL = f"http://127.0.0.1:{FRONTEND_PORT}/"
+
+#: Docker Desktop on macOS needs a moment to open its socket after the app is launched; the first
+#: launch also waits on a licence prompt, so the deadline is generous but finite.
+DOCKER_DAEMON_TIMEOUT = 180
+
 #: Docker Desktop is only auto-installed on the two platforms whose official channel is a
 #: single documented artifact. Everywhere else the operator gets the vendor link instead.
 DOCKER_DESKTOP_DMG = "https://desktop.docker.com/mac/main/{architecture}/Docker.dmg"
@@ -492,7 +499,9 @@ def _install_docker_desktop_macos(ctx: Context, url: str) -> Result:
     downloads = TOOLS_DIR / "downloads"
     dmg = downloads / "Docker.dmg"
 
-    print(f"     正在下载 Docker Desktop（约 {_human_size(_remote_size(url) or 0)}），可中断后续传…")
+    print(
+        f"     正在下载 Docker Desktop（约 {_human_size(_remote_size(url) or 0)}），可中断后续传…"
+    )
     _download_resumable(
         url,
         dmg,
@@ -654,28 +663,79 @@ def check_docker(ctx: Context) -> Result:
         ctx.node_bin_dir = ctx.node_bin_dir or None
         _rediscover_compose(ctx)
 
-    daemon = _run([ctx.docker, "info", "--format", "{{.ServerVersion}}"], timeout=30)
-    if daemon.returncode != 0:
-        return Result(
-            "Docker",
-            BLOCKED,
-            "docker 已安装，但守护进程没有响应",
-            fix="启动 Docker Desktop（open -a Docker），等待图标变为运行中后重试",
-            evidence=[_first_line(daemon.stderr)],
-        )
+    started_here = False
+    version = _docker_daemon_ready(ctx)
+    if version is None:
+        if ctx.dry_run:
+            return Result("Docker", SKIPPED, "dry-run：守护进程没有响应")
+        if not ctx.start_docker:
+            return Result(
+                "Docker",
+                BLOCKED,
+                "docker 已安装，但守护进程没有响应（--no-start-docker）",
+                fix="启动 Docker Desktop（open -a Docker），等待图标变为运行中后重试",
+            )
+        if ctx.compose is None and ctx.docker is None:
+            return Result("Docker", BLOCKED, "docker 命令不可用")
+        outcome = _start_docker_desktop(ctx)
+        if outcome is not None:
+            return Result(
+                "Docker",
+                BLOCKED,
+                "docker 已安装，但守护进程没有响应",
+                fix=f"{outcome}；也可手动执行 open -a Docker 后重试",
+            )
+        version = _docker_daemon_ready(ctx)
+        if version is None:
+            return Result(
+                "Docker",
+                BLOCKED,
+                "守护进程启动后仍未响应",
+                fix="打开 Docker Desktop 查看状态，等待其完全启动后重试",
+            )
+        started_here = True
     if ctx.compose is None:
         return Result(
             "Docker Compose",
             BLOCKED,
             "docker compose 插件不可用",
             fix="升级 Docker Desktop，或单独安装 compose v2 插件",
-            evidence=[f"docker {daemon.stdout.strip()}"],
+            evidence=[f"docker {version}"],
         )
     return Result(
         "Docker",
-        OK,
-        f"daemon {daemon.stdout.strip()} · compose {ctx.compose_version}",
+        FIXED if started_here else OK,
+        (f"已启动 Docker Desktop · daemon {version}" if started_here else f"daemon {version}")
+        + f" · compose {ctx.compose_version}",
     )
+
+
+def _docker_daemon_ready(ctx: Context) -> str | None:
+    """Return the daemon's version, or ``None`` while it is not answering."""
+    assert ctx.docker is not None
+    probe = _run([ctx.docker, "info", "--format", "{{.ServerVersion}}"], timeout=30)
+    if probe.returncode != 0:
+        return None
+    return probe.stdout.strip()
+
+
+def _start_docker_desktop(ctx: Context) -> str | None:
+    """Launch Docker Desktop. Return ``None`` once its daemon answers, else a short reason.
+
+    Only macOS has a documented launch here, and only when the app bundle exists - a Linux host
+    runs dockerd as a service, which needs root, so that case is left as an instruction rather
+    than attempted behind the operator's back.
+    """
+    # ``platform.system()`` returns "Darwin" on macOS, so the comparison must be case-folded -
+    # the rest of this module already lowercases it for exactly that reason.
+    if platform.system().lower() != "darwin" or not DOCKER_APP.is_dir():
+        return "无法自动启动：仅支持 macOS 的 Docker Desktop"
+    opened = _run(["open", "-a", DOCKER_APP.name], timeout=60)
+    if opened.returncode != 0:
+        return f"open 失败：{_first_line(opened.stderr) or '未知原因'}"
+    if not _await(lambda: _docker_daemon_ready(ctx) is not None, timeout=DOCKER_DAEMON_TIMEOUT):
+        return "Docker Desktop 已启动，但守护进程在 180 秒内未就绪（首次启动需完成许可确认）"
+    return None
 
 
 def check_python_runtime(ctx: Context) -> Result:
@@ -797,7 +857,10 @@ def _node_dist_files() -> tuple[str, str]:
     machine = platform.machine().lower()
     if system == "darwin":
         architecture = "arm64" if machine in {"arm64", "aarch64"} else "x64"
-        return "osx-arm64-tar" if architecture == "arm64" else "osx-x64-tar", "darwin-" + architecture
+        return (
+            "osx-arm64-tar" if architecture == "arm64" else "osx-x64-tar",
+            "darwin-" + architecture,
+        )
     if system == "linux":
         architecture = "arm64" if machine in {"arm64", "aarch64"} else "x64"
         return f"linux-{architecture}", f"linux-{architecture}"
@@ -984,17 +1047,29 @@ def _create_environment_file(ctx: Context) -> Result:
     The generated keys are local-only (a Neo4j password for a container this repository starts,
     and a master key for a directory under the operator's home). They are written with mode 600.
     External credentials are never invented: the model section stays commented out.
+
+    The master key is only invented while the credential store holds nothing. The default store
+    lives under the operator's home, so every checkout on this machine shares it: generating a
+    key for a store that already has documents would silently make them unreadable. That case
+    leaves the key blank so ``check_secret_store`` reports the real fix instead.
     """
     path = _dotenv_path()
     if ctx.dry_run:
         return Result("环境文件", SKIPPED, f"dry-run：将创建 {path}")
 
-    store_dir = ctx.environment.get("QANERIS_SECRET_STORE_DIR") or str(_default_secret_store_dir())
+    configured_store = (ctx.environment.get("QANERIS_SECRET_STORE_DIR") or "").strip()
+    store_dir = str(
+        Path(configured_store).expanduser() if configured_store else _default_secret_store_dir()
+    )
+    master_key = (ctx.environment.get("QANERIS_MASTER_KEY") or "").strip()
+    if not master_key and not _store_has_secrets(Path(store_dir)):
+        master_key = generate_master_key()
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         _ENV_TEMPLATE.format(
             neo4j_password=generate_password(),
-            master_key=ctx.environment.get("QANERIS_MASTER_KEY") or generate_master_key(),
+            master_key=master_key,
             secret_store_dir=store_dir,
         ),
         encoding="utf-8",
@@ -1004,6 +1079,13 @@ def _create_environment_file(ctx: Context) -> Result:
     ctx.environment = effective_environment()
     _PROCESS_ENV.clear()
     _PROCESS_ENV.update(ctx.environment)
+    if not master_key:
+        return Result(
+            "环境文件",
+            FIXED,
+            f"已生成 {path}（权限 600；凭据库已有数据，未生成新主密钥）",
+            fix="把原有的 QANERIS_MASTER_KEY 填回 .env，否则已存凭据无法解密",
+        )
     return Result(
         "环境文件",
         FIXED,
@@ -1132,9 +1214,11 @@ def check_secret_store(ctx: Context) -> Result:
 def _configure_secret_store(ctx: Context) -> Result:
     """Generate the store directory and master key, then persist them into ``.env``."""
     path = _dotenv_path()
-    store_dir = Path(
-        ctx.environment.get("QANERIS_SECRET_STORE_DIR") or _default_secret_store_dir()
-    ).expanduser().resolve()
+    store_dir = (
+        Path(ctx.environment.get("QANERIS_SECRET_STORE_DIR") or _default_secret_store_dir())
+        .expanduser()
+        .resolve()
+    )
     repository = PROJECT_ROOT
     if store_dir == repository or repository in store_dir.parents:
         return Result(
@@ -1145,7 +1229,10 @@ def _configure_secret_store(ctx: Context) -> Result:
         )
 
     # A directory with documents in it must keep the key that encrypted them.
-    if _store_has_secrets(store_dir) and not (ctx.environment.get("QANERIS_MASTER_KEY") or "").strip():
+    if (
+        _store_has_secrets(store_dir)
+        and not (ctx.environment.get("QANERIS_MASTER_KEY") or "").strip()
+    ):
         return Result(
             "凭据库",
             BLOCKED,
@@ -1248,7 +1335,9 @@ def check_neo4j(ctx: Context) -> Result:
     port = _neo4j_port(uri) or 7687
     if _port_open(port):
         owner = _bolt_owner(ctx, port)
-        return Result("Neo4j", OK, f"{uri or 'bolt://localhost:7687'} 已在监听（端口 {port}）{owner}")
+        return Result(
+            "Neo4j", OK, f"{uri or 'bolt://localhost:7687'} 已在监听（端口 {port}）{owner}"
+        )
 
     if ctx.dry_run:
         return Result("Neo4j", SKIPPED, f"dry-run：端口 {port} 无监听")
@@ -1595,6 +1684,50 @@ def check_web_services(ctx: Context) -> Result:
     )
 
 
+def open_workspace(ctx: Context) -> Result:
+    """Hand the running workspace to the browser.
+
+    Kept as its own check rather than folded into ``check_web_services`` so the two facts stay
+    separate: whether the servers answer is a verdict, and whether a browser opened is a
+    convenience. Failing to open one must never make a healthy install look broken, so a launcher
+    that is missing or refuses is reported as ``skipped``, not ``blocked``.
+    """
+    if not ctx.open_browser:
+        return Result("打开工作台", SKIPPED, "--no-open：未打开浏览器")
+    if not _http_ok(FRONTEND_URL):
+        return Result("打开工作台", SKIPPED, "前端未就绪，跳过")
+    if ctx.dry_run:
+        return Result("打开工作台", SKIPPED, f"dry-run：将打开 {FRONTEND_URL}")
+
+    outcome = _open_workspace_browser()
+    if outcome is not None:
+        return Result(
+            "打开工作台", SKIPPED, f"未能自动打开（{outcome}）", fix=f"手动访问 {FRONTEND_URL}"
+        )
+    return Result("打开工作台", FIXED, f"已在浏览器打开 {FRONTEND_URL}")
+
+
+def _open_workspace_browser() -> str | None:
+    """Open the workspace in the operator's browser. Return ``None`` on success, else a reason.
+
+    Deliberately quiet on failure: a headless host or a container has no browser, and the URL is
+    printed either way, so a missing launcher is not worth a warning.
+    """
+    if platform.system().lower() == "darwin":
+        command = ["open", FRONTEND_URL]
+    elif os.name == "nt":
+        command = ["cmd", "/c", "start", "", FRONTEND_URL]
+    else:
+        command = ["xdg-open", FRONTEND_URL]
+    launcher = _which(command[0], extra_dirs=[Path("/usr/bin"), Path("/bin")])
+    if launcher is None:
+        return "没有可用的浏览器启动器"
+    completed = _run([launcher, *command[1:]], timeout=30)
+    if completed.returncode != 0:
+        return _first_line(completed.stderr) or "浏览器启动失败"
+    return None
+
+
 def _spawn_detached(command: Sequence[str], *, cwd: Path, log_path: Path, env: Mapping[str, str]):
     """Start a long-running child that survives this process exiting.
 
@@ -1715,7 +1848,16 @@ def _print_summary(results: Sequence[Result], *, stream: TextIO | None = None) -
     for item in fixed:
         if item.fix:
             print(f"\n提示 {item.name}：{item.fix}", file=stream)
+    if not blocked and _workspace_answering(results):
+        print(file=stream)
+        print(f"Qaneris 已就绪：{FRONTEND_URL}", file=stream)
+        print("停止服务：pkill -f 'uvicorn qaneris' ; pkill -f 'vite --host'", file=stream)
     return 1 if blocked else 0
+
+
+def _workspace_answering(results: Sequence[Result]) -> bool:
+    """Report whether the Web 服务 check found or left a workspace running."""
+    return any(item.name == "Web 服务" and item.status in {OK, FIXED} for item in results)
 
 
 # --------------------------------------------------------------------------------------------
@@ -1733,6 +1875,10 @@ class Context:
     allow_root: bool = False
     start_services: bool = True
     prompt_for_model: bool = True
+    #: Launch Docker Desktop when it is installed but its daemon is not answering.
+    start_docker: bool = True
+    #: Open the workspace in the browser once it is answering.
+    open_browser: bool = True
     probe_network: bool = True
     python_version: str = "3.12"
     environment: dict[str, str] = field(default_factory=dict)
@@ -1817,6 +1963,7 @@ def run_checks(ctx: Context) -> list[Result]:
     results.append(check_neo4j(ctx))
     results.append(check_neo4j_connectivity(ctx))
     results.append(check_web_services(ctx))
+    results.append(open_workspace(ctx))
     return results
 
 
@@ -1835,11 +1982,14 @@ def build_parser() -> argparse.ArgumentParser:
         prog="setup.py",
         description="一次运行把 Qaneris 运行所需的软件、依赖、配置与本地服务全部准备好。",
         epilog=(
-            "默认会安装缺失的运行时、生成缺失的本地密钥、启动 Neo4j 与前后端。"
+            "默认会安装缺失的运行时、生成缺失的本地密钥、启动 Neo4j 与前后端，"
+            f"并在工作台就绪后打开 {FRONTEND_URL}。"
             "无法代填的只有外部模型凭据（需真实 API Key）。"
         ),
     )
-    parser.add_argument("--check", action="store_true", help="只检查，不做任何修改（等同 --dry-run）")
+    parser.add_argument(
+        "--check", action="store_true", help="只检查，不做任何修改（等同 --dry-run）"
+    )
     parser.add_argument("--dry-run", action="store_true", help="只报告，不下载、不安装、不启动")
     parser.add_argument("--offline", action="store_true", help="跳过需要联网的探测")
     parser.add_argument(
@@ -1865,6 +2015,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_false",
         dest="start_services",
         help="不要自动启动后端与前端，只做好准备工作",
+    )
+    parser.add_argument(
+        "--no-start-docker",
+        action="store_false",
+        dest="start_docker",
+        help="Docker 已安装但守护进程未运行时，不要自动打开 Docker Desktop",
+    )
+    parser.add_argument(
+        "--no-open",
+        action="store_false",
+        dest="open_browser",
+        help="工作台就绪后不要自动打开浏览器",
     )
     parser.add_argument("--json", action="store_true", dest="json_output", help="以 JSON 输出结果")
     parser.add_argument(
@@ -1899,6 +2061,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         install_docker=args.install_docker,
         allow_root=args.allow_root,
         start_services=args.start_services,
+        start_docker=args.start_docker,
+        open_browser=args.open_browser,
         prompt_for_model=args.prompt_for_model,
         probe_network=not args.offline,
         python_version=args.python,

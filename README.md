@@ -209,7 +209,7 @@ On a fresh checkout, one command prepares everything:
 python3 setup.py
 ```
 
-It checks and **repairs** in order: a missing `uv`, Node or Docker, a missing `.env` and its local keys, the Python and frontend dependency trees, the Neo4j container, and the backend and frontend servers. The keys it generates are local (the Neo4j container password and the credential-store master key) and are written to `.env` with mode 600.
+It checks and **repairs** in order: a missing `uv`, Node or Docker, a missing `.env` and its local keys, the Python and frontend dependency trees, the Neo4j container, and the backend and frontend servers. The keys it generates are local (the Neo4j container password and the credential-store master key) and are written to `.env` with mode 600. When Docker is installed but its daemon is not running, Docker Desktop is launched and waited for; once the workspace answers, it opens in your browser.
 
 Exactly one thing it cannot fill in: the **model endpoint credential**, which needs a real API key. The script asks for it interactively. Without it, asking a question returns `intent_parsing_failed`, while scanning, schema inventory and the web workspace keep working.
 
@@ -225,11 +225,15 @@ python3 setup.py --json           # machine-readable result
 python3 setup.py --no-start       # prepare only; do not start servers
 python3 setup.py --no-prompt      # do not ask for model credentials
 python3 setup.py --no-install-docker   # never install Docker automatically
+python3 setup.py --no-start-docker     # do not launch Docker Desktop for a stopped daemon
+python3 setup.py --no-open             # do not open the browser when the workspace is ready
 ```
 
-When installing Docker, macOS downloads the official Docker Desktop DMG (~586 MB, resumable, copied to `/Applications`) and Linux runs Docker's documented script (needs root, so it also requires `--allow-root`). An installed-but-stopped daemon is only reported via `open -a Docker`; the script does not launch a GUI app for you.
+When installing Docker, macOS downloads the official Docker Desktop DMG (~586 MB, resumable, copied to `/Applications`) and Linux runs Docker's documented script (needs root, so it also requires `--allow-root`). Docker Desktop is only auto-installed where the vendor publishes a single documented artifact; elsewhere the script prints the download link. An installed-but-stopped daemon on macOS is launched with `open -a Docker` and waited for (up to 180 s, including the first-run licence prompt); pass `--no-start-docker` to get the instruction instead. On Linux, dockerd needs root, so it is never started silently.
 
 If a Neo4j data volume already exists its password was fixed at initialisation. The script reports this instead of silently deleting your graph data.
+
+The credential store lives outside the repository (by default `~/.qaneris/secrets`), so every checkout on one machine shares it. A new `.env` therefore only generates a master key while that store is empty; if it already holds encrypted credentials, the script leaves the key blank and asks you to restore the original, because a fresh key would make them undecryptable.
 
 ## Open the Web workspace
 
