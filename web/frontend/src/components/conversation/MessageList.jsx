@@ -115,7 +115,7 @@ function ClarificationCard({ view, onSubmit, disabled }) {
       const label = typeof option === "string" ? option : option?.label || option?.value || "";
       return <button key={label} type="button" disabled={disabled} onClick={() => onSubmit(label)}>{label}</button>;
     })}</div> : <form onSubmit={(event) => { event.preventDefault(); if (answer.trim()) onSubmit(answer.trim()); }}>
-      <input aria-label="澄清回答" value={answer} onChange={(event) => setAnswer(event.target.value)} disabled={disabled} />
+      <input aria-label="澄清回答" placeholder="填写确认内容后继续" value={answer} onChange={(event) => setAnswer(event.target.value)} disabled={disabled} />
       <button type="submit" disabled={disabled || !answer.trim()}>确认</button>
     </form>}
   </section>;
@@ -172,7 +172,7 @@ function RunCard({ runId, run, events, message, onLoadRun, onAction, busy, canRe
     </p> : null}
     {status === "CANCELLED" ? <p className="run-progress">此轮已取消。</p> : null}
     {status === "WAITING_USER" ? <ClarificationCard view={view} disabled={busy} onSubmit={(value) => onAction(runId, "clarify", value)} /> : null}
-    {run && status !== "COMPLETED" && status !== "FAILED" && status !== "BLOCKED" && status !== "CANCELLED" && status !== "WAITING_USER" ? <button type="button" className="secondary-button" disabled={busy} onClick={() => onAction(runId, "cancel")}>取消</button> : null}
+    {run && status !== "COMPLETED" && status !== "FAILED" && status !== "BLOCKED" && status !== "CANCELLED" ? <button type="button" className="secondary-button" disabled={busy} onClick={() => onAction(runId, "cancel")}>取消本轮</button> : null}
     {status === "FAILED" && run.retryable ? <button type="button" className="secondary-button" disabled={busy}
       title={rescanRequired && !canRescan ? "当前对话未绑定唯一数据源，请前往“数据源”页面重新扫描" : undefined}
       onClick={() => onAction(runId, rescanRequired ? "rescan-retry" : "retry")}>{rescanRequired ? "重新扫描并重试" : "重试"}</button> : null}

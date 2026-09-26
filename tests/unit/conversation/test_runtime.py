@@ -352,6 +352,62 @@ def test_clarification_resumes_same_run_and_commits_only_after_completion(tmp_pa
     assert conversations.memory(conversation.conversation_id).last_run_id == run.run_id
 
 
+def test_unanswerable_clarification_does_not_trap_conversation(tmp_path):
+    class MissingDefinitionAsk(FakeAsk):
+        def execute(self, request):
+            self.questions.append(request.question)
+            yield Record(
+                AskEvent(event_type="done", sequence=1, correlation_id="fake"),
+                AskResponse(
+                    question=request.question,
+                    status=AskStatus.CLARIFICATION_REQUIRED,
+                    clarification=[
+                        AskClarification(
+                            question="请先发布商品维度定义。",
+                            actionable=False,
+                        )
+                    ],
+                ),
+            )
+
+    conversations, runs, ask, runtime = build(tmp_path, ask=MissingDefinitionAsk())
+    conversation = ConversationService(conversations).create()
+    run = runtime.create(conversation.conversation_id, "当前表格中都有什么商品？")
+
+    assert runs.get(run.run_id).status == RunStatus.BLOCKED
+    assert runs.get(run.run_id).failure_code == "clarification_requires_external_action"
+    assert len(ask.questions) == 1
+    assert not any(
+        message.message_kind == "clarification"
+        for message in conversations.messages(conversation.conversation_id)
+    )
+
+
+def test_repeated_clarification_blocks_after_confirm_instead_of_looping(tmp_path):
+    class UnchangedAsk(FakeAsk):
+        def execute(self, request):
+            self.questions.append(request.question)
+            yield Record(
+                AskEvent(event_type="done", sequence=1, correlation_id="fake"),
+                AskResponse(
+                    question=request.question,
+                    status=AskStatus.CLARIFICATION_REQUIRED,
+                    clarification=[AskClarification(question="请选择销售额口径。")],
+                ),
+            )
+
+    conversations, runs, ask, runtime = build(tmp_path, ask=UnchangedAsk())
+    conversation = ConversationService(conversations).create()
+    run = runtime.create(conversation.conversation_id, "销售额是多少？")
+    assert runs.get(run.run_id).status == RunStatus.WAITING_USER
+
+    runtime.clarify(run.run_id, "实收销售额")
+
+    assert runs.get(run.run_id).status == RunStatus.BLOCKED
+    assert runs.get(run.run_id).failure_code == "clarification_unresolved"
+    assert len(ask.questions) == 2
+
+
 def test_same_run_retry_after_dependency_failure(tmp_path):
     class FlakyAsk(FakeAsk):
         def execute(self, request):

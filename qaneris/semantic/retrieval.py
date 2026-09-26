@@ -29,6 +29,7 @@ from qaneris.semantic.assets import (
     SemanticAssetStatus,
     SemanticAssetStore,
 )
+from qaneris.semantic.field_names import field_name_aliases
 from qaneris.semantic.models import SemanticRetrievalPath, SemanticRetrievalResult
 from qaneris.semantic.normalization import normalize_term as _normalize
 
@@ -377,6 +378,7 @@ class MetadataLexicalSemanticRetriever:
                 datasource_id=data_object.datasource_id,
                 data_object_id=data_object.id,
                 field_path=field_profile.path,
+                aliases=field_name_aliases(field_profile.path),
                 descriptions=(field_profile.path, field_profile.comment or ""),
                 evidence=(f"字段画像：{data_object.id}.{field_profile.path}",),
             )
@@ -560,6 +562,7 @@ def _physical_assets(structure: GraphStructure) -> list[_Asset]:
                 data_object_id=field.object_id,
                 field_id=field.node_id,
                 field_path=field.path,
+                aliases=field_name_aliases(field.path),
                 data_type=field.data_type,
                 native_type=field.native_type,
                 namespace=owner.namespace if owner else None,
@@ -669,7 +672,14 @@ def _material_asset(
         data_object_id=data_object.node_id,
         field_id=field.node_id if field else None,
         field_path=field.path if field else None,
-        aliases=tuple(material.aliases),
+        aliases=tuple(dict.fromkeys([
+            *material.aliases,
+            *(field_name_aliases(field.path)
+              if field
+              and material.kind is SemanticAssetKind.DIMENSION
+              and _normalize(material.name) == _normalize(field.path)
+              else ()),
+        ])),
         descriptions=tuple(
             value for value in (material.description, material.kind.value) if value
         ),

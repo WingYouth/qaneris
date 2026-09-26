@@ -7,6 +7,7 @@ import os
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+from pathlib import Path
 from statistics import mean
 from typing import Any
 from uuid import uuid4
@@ -118,6 +119,7 @@ from qaneris.semantic import (
     SQLiteSemanticAssetRegistry,
     normalize_time_range,
 )
+from qaneris.semantic.field_names import field_name_aliases
 from qaneris.semantic.models import ClarificationRequest, IntentUnderstandingResult
 
 logger = logging.getLogger(__name__)
@@ -1494,6 +1496,29 @@ class QanerisService:
             )
 
         datasource = self._resolve_datasource(request.datasource_id)
+        if is_selected_source_inventory_question(request.question):
+            profile = self.catalog.get_connection_profile(datasource.id)
+            if profile is not None:
+                source_path = profile.endpoint.path
+            else:
+                _, stored_connection = self.catalog.get_datasource(datasource.id)
+                source_path = stored_connection.get("path")
+            path_parts = tuple(part.casefold() for part in Path(source_path or "").parts)
+            imported_excel = any(
+                path_parts[index:index + 2] == ("ingestion", "excel")
+                for index in range(len(path_parts) - 1)
+            )
+            if "excel" not in datasource.name.casefold() and not imported_excel:
+                message = (
+                    f"当前选中的是“{datasource.name}”，不是已导入的 Excel 数据源。"
+                    "请在“选择数据源”中选中目标 Excel 后再问。"
+                )
+                return AskResponse(
+                    question=request.question,
+                    status=AskStatus.CLARIFICATION_REQUIRED,
+                    answer=message,
+                    clarification=[AskClarification(question=message)],
+                )
         question = request.question.casefold()
         mentioned_driver = next(
             (
@@ -1537,14 +1562,22 @@ class QanerisService:
             raise GraphUnavailableError("扫描目录与 Neo4j 已发布结构不一致，请重新扫描数据源")
 
         fields_by_object: dict[str, list[str]] = {}
+        display_fields_by_object: dict[str, list[str]] = {}
+        has_name_hints = False
         for field in structure.fields:
             fields_by_object.setdefault(field.object_id, []).append(field.path)
+            aliases = field_name_aliases(field.path)
+            if aliases:
+                has_name_hints = True
+            display_fields_by_object.setdefault(field.object_id, []).append(
+                f"{field.path}（名称提示：{aliases[0]}）" if aliases else field.path
+            )
         objects = structure.data_objects
         rows = [
             {
                 "数据表": item.qualified_name or item.name,
                 "类型": item.object_kind or "table",
-                "字段": "、".join(fields_by_object.get(item.node_id, [])) or "—",
+                "字段": "、".join(display_fields_by_object.get(item.node_id, [])) or "—",
             }
             for item in objects[: request.max_rows]
         ]
@@ -1554,6 +1587,8 @@ class QanerisService:
             f"{len(structure.fields)} 个字段。下表列出表和字段；这些是结构信息，不是表内记录。"
             if objects else f"“{datasource.name}”的已发布扫描结构中没有数据对象。"
         )
+        if has_name_hints:
+            answer += " 字段的中文名称提示仅按英文名称翻译，尚未确认业务含义。"
         if re.search(r"(?:这个|这张|当前)(?:数据)?表", request.question) and len(objects) > 1:
             answer = (
                 f"当前选中的是数据源“{datasource.name}”，其中有 {len(objects)} 张表。"
@@ -1622,6 +1657,9 @@ class QanerisService:
             AskClarification(
                 question=item.question,
                 options=[option.label for option in item.options],
+                actionable=not (
+                    item.clarification_id.startswith("grounding_") and not item.options
+                ),
             )
             for item in clarifications
         ]

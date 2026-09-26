@@ -213,6 +213,15 @@ class RunOrchestrator:
 
     def execute(self, run_id: str) -> None:
         run = self.runs.get(run_id)
+        previous_clarification = None
+        if (
+            run.status == RunStatus.WAITING_USER
+            and run.run_kind == "normal"
+            and run.response_json
+        ):
+            previous = AskResponse.model_validate(run.response_json)
+            if previous.clarification:
+                previous_clarification = previous.clarification[0].question
         if (
             run.status == RunStatus.CREATED
             or run.status == RunStatus.WAITING_USER
@@ -237,7 +246,7 @@ class RunOrchestrator:
             return
         self.runs.append_event(run_id, "RUN_STARTED", {"attempt": run.attempt})
         try:
-            self._drive(run)
+            self._drive(run, previous_clarification)
         except Exception as error:  # noqa: BLE001 - persist worker failure; never lose a run
             current = self.runs.get(run_id)
             if current.status == RunStatus.COMPLETED:
@@ -310,7 +319,7 @@ class RunOrchestrator:
                 {"failure_code": code, "retryable": retryable},
             )
 
-    def _drive(self, run: Run) -> None:
+    def _drive(self, run: Run, previous_clarification: str | None = None) -> None:
         if self._cancel_if_requested(run):
             return
         conversation = self.conversations.get(run.conversation_id)
@@ -427,13 +436,34 @@ class RunOrchestrator:
         if response is None:
             raise RuntimeError("Ask ended without a response")
         if response.status == AskStatus.CLARIFICATION_REQUIRED:
+            clarification = (
+                response.clarification[0].question if response.clarification else response.answer
+            )
+            if response.clarification and not response.clarification[0].actionable:
+                code = "clarification_requires_external_action"
+                message = clarification
+            elif previous_clarification == clarification:
+                code = "clarification_unresolved"
+                message = f"确认内容未能解决当前问题：{clarification}"
+            else:
+                code = None
+                message = None
+            if code:
+                self._save(
+                    transition(
+                        run,
+                        RunStatus.BLOCKED,
+                        failure_code=code,
+                        failure_message=message,
+                        completed_at=now(),
+                    )
+                )
+                self.runs.append_event(run.run_id, "RUN_BLOCKED", {"failure_code": code})
+                return
             run = self._save(
                 transition(
                     run, RunStatus.WAITING_USER, response_json=response.model_dump(mode="json")
                 )
-            )
-            clarification = (
-                response.clarification[0].question if response.clarification else response.answer
             )
             self.messages.assistant_message(
                 run.conversation_id,

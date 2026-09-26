@@ -20,6 +20,7 @@ from qaneris.graph import (
 from qaneris.semantic import (
     GraphSemanticRetriever,
     SemanticAsset,
+    SemanticGrounder,
     SemanticRetrievalPath,
     SemanticRetrievalResult,
     SQLiteSemanticAssetRegistry,
@@ -455,6 +456,73 @@ def test_scenario_1_physical_assets_are_also_retrievable(tmp_path) -> None:
         item.asset_type == SemanticAssetType.FIELD and item.field_path == "region"
         for item in result.candidates
     )
+
+
+def test_chinese_field_name_recall_explains_unpublished_cassandra_dimension(tmp_path) -> None:
+    structure = graph_structure()
+    structure.fields.append(
+        GraphField(
+            node_id="f_event_time",
+            object_id="obj_orders",
+            datasource_id="ds_sales",
+            object_name="orders",
+            name="event_time",
+            path="event_time",
+            data_type="timestamp",
+        )
+    )
+    question = query("事件大部分在什么时间？", metrics=[], dimensions=["事件时间"])
+    retrieval = GraphSemanticRetriever(
+        InMemoryGraphReader(structure), governed_registry(tmp_path), "default"
+    ).retrieve(question, requested_datasource_id="ds_sales")
+
+    physical = [
+        item for item in retrieval.candidates
+        if item.asset_type == SemanticAssetType.FIELD and item.field_path == "event_time"
+    ]
+    assert len(physical) == 1
+    assert "事件时间" in physical[0].labels
+    grounding = SemanticGrounder().ground(question, retrieval)
+    assert not grounding.is_executable
+    assert "orders.event_time" in grounding.clarifications[0].question
+    assert "发布" in grounding.clarifications[0].question
+
+
+def test_chinese_name_binds_a_published_english_dimension(tmp_path) -> None:
+    structure = graph_structure()
+    structure.fields.append(
+        GraphField(
+            node_id="f_event_time",
+            object_id="obj_orders",
+            datasource_id="ds_sales",
+            object_name="orders",
+            name="event_time",
+            path="event_time",
+            data_type="timestamp",
+        )
+    )
+    registry = governed_registry(tmp_path)
+    registry.save(semantic_asset(
+        "dimension_event_time", "dimension", "event_time",
+        datasource_id="ds_sales", graph_data_object_id="obj_orders",
+        graph_field_id="f_event_time", field_path="event_time",
+    ))
+    registry.save(semantic_asset(
+        "dimension_business_date", "dimension", "下单日期",
+        datasource_id="ds_sales", graph_data_object_id="obj_orders",
+        graph_field_id="f_event_time", field_path="event_time",
+    ))
+    question = query("按事件时间查看", metrics=[], dimensions=["事件时间"])
+    retrieval = GraphSemanticRetriever(
+        InMemoryGraphReader(structure), registry, "default"
+    ).retrieve(question, requested_datasource_id="ds_sales")
+    assert [item.asset_id for item in retrieval.candidates_for(SemanticAssetType.DIMENSION)] == [
+        "dimension_event_time"
+    ]
+    grounding = SemanticGrounder().ground(question, retrieval)
+
+    assert grounding.is_executable
+    assert grounding.grounded_query.bindings[0].field_path == "event_time"
 
 
 def test_scenario_2_registry_binding_absent_from_the_graph_is_rejected(tmp_path) -> None:

@@ -50,6 +50,7 @@ class AskClarification(BaseModel):
 
     question: str = Field(min_length=1)
     options: list[str] = Field(default_factory=list)
+    actionable: bool = True
 
 
 class ErrorDetail(BaseModel):

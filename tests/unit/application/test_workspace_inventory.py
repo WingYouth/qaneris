@@ -98,7 +98,10 @@ def test_selected_excel_inventory_bypasses_business_entity_confirmation(tmp_path
     graph_reader.read_structure.return_value = SimpleNamespace(
         datasources=[SimpleNamespace(datasource_id=source.id, scan_version=1)],
         data_objects=[SimpleNamespace(node_id="orders", qualified_name="订单", name="订单", object_kind="table")],
-        fields=[SimpleNamespace(object_id="orders", path="订单号")],
+        fields=[
+            SimpleNamespace(object_id="orders", path="订单号"),
+            SimpleNamespace(object_id="orders", path="event_time"),
+        ],
         truncated=False,
     )
     model = Mock()
@@ -112,7 +115,22 @@ def test_selected_excel_inventory_bypasses_business_entity_confirmation(tmp_path
     assert response.status == AskStatus.COMPLETED
     assert response.analysis["result_kind"] == "schema_inventory"
     assert response.result.rows[0]["数据表"] == "订单"
-    assert response.result.rows[0]["字段"] == "订单号"
+    assert response.result.rows[0]["字段"] == "订单号、event_time（名称提示：事件时间）"
+    assert "尚未确认业务含义" in response.answer
+
+    other = catalog.create_datasource(
+        DatasourceCreate(
+            name="普通数据库",
+            kind="relational",
+            connection={"driver": "sqlite", "path": ":memory:"},
+        )
+    )
+    catalog.replace_datasets(other.id, [DatasetInfo(datasource_id=other.id, name="other")])
+    wrong_scope = service.ask(
+        AskRequest(question="当前excel是什么数据？", datasource_id=other.id)
+    )
+    assert wrong_scope.status == AskStatus.CLARIFICATION_REQUIRED
+    assert "选中目标 Excel" in wrong_scope.answer
 
 
 def test_conversation_answers_workspace_inventory_with_multiple_sources(tmp_path) -> None:

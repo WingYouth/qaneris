@@ -243,6 +243,23 @@ def test_grounding_clarification_stops_before_context_planning_and_execution(tmp
     instance.execute_grounded_plan.assert_not_called()
 
 
+def test_missing_published_dimension_is_not_a_text_confirmation() -> None:
+    response = QanerisService._clarification_response(
+        "当前表格中都有什么商品？",
+        query(question="当前表格中都有什么商品？", metrics=[], dimensions=["商品"]),
+        [
+            ClarificationRequest(
+                clarification_id="grounding_missing_dimension_product",
+                field="dimension:商品",
+                question="请先发布商品维度定义。",
+            )
+        ],
+    )
+
+    assert response.clarification[0].actionable is False
+    assert response.clarification[0].options == []
+
+
 def test_low_confidence_continues_through_unique_grounding(tmp_path) -> None:
     instance, _ = service(tmp_path, query(confidence=0.4))
     wire_success(instance)

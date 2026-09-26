@@ -175,7 +175,7 @@ export function ConversationWorkspace({
         onLoadRun={loadRun} onAction={act} busy={busy}
         canRescan={state.conversation?.datasource_scope?.length === 1} onOpenGovernance={onOpenGovernance} />
       <MessageComposer value={draft} onChange={(next) => { setDraft(next); if (pending.current?.question !== next.trim()) pending.current = null; }} onSend={send}
-        disabled={inputDisabled || !selectedId} hint={!backendAvailable ? "后端不可用，暂不能发送新问题" : active && RUN_BUSY.has(active.status) ? "当前问题处理中" : !selectedId ? "请先创建对话" : "Enter 发送 · Shift+Enter 换行"} />
+        disabled={inputDisabled || !selectedId} hint={!backendAvailable ? "后端不可用，暂不能发送新问题" : active?.status === "WAITING_USER" ? "请确认上方问题，或取消本轮" : active && RUN_BUSY.has(active.status) ? "当前问题处理中" : !selectedId ? "请先创建对话" : "Enter 发送 · Shift+Enter 换行"} />
     </div>
   </section>;
 }

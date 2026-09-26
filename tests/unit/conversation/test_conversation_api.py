@@ -5,6 +5,7 @@ import asyncio
 from fastapi.testclient import TestClient
 from test_runtime import FakeAsk, FakeModel, QueuedScheduler
 
+from qaneris.common.errors import ModelInvocationError
 from qaneris.interfaces.api.app import create_app
 from qaneris.runtime.scheduler import InlineRunScheduler
 

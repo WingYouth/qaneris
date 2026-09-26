@@ -212,7 +212,7 @@ class SemanticGrounder:
             return (
                 None,
                 f"未找到与{label}“{term}”匹配的语义候选",
-                _missing_clarification(slot, term),
+                _missing_clarification(slot, term, retrieval),
             )
         # An expression that exactly matches a governed name or alias outranks one that only
         # contains it, so 实收销售额 is not ambiguous with a metric that merely aliases 销售额.
@@ -222,7 +222,7 @@ class SemanticGrounder:
             return (
                 None,
                 f"未找到与{label}“{term}”匹配的语义候选",
-                _missing_clarification(slot, term),
+                _missing_clarification(slot, term, retrieval),
             )
         return self._governed_binding(slot, term, matched, retrieval)
 
@@ -461,15 +461,39 @@ def _slot_terms(query: BusinessQuery) -> list[tuple[GroundingSlot, str]]:
     return [(slot, term) for slot, term in terms if term and term.strip()]
 
 
-def _missing_clarification(slot: GroundingSlot, term: str) -> ClarificationRequest:
+def _missing_clarification(
+    slot: GroundingSlot, term: str, retrieval: SemanticRetrievalResult
+) -> ClarificationRequest:
     label = _SLOT_LABELS[slot]
+    physical = [
+        candidate for candidate in retrieval.candidates
+        if slot is GroundingSlot.DIMENSION
+        and candidate.asset_type is SemanticAssetType.FIELD
+        and candidate.field_path
+        and _address_strength(candidate, term) > 0
+        and (
+            not retrieval.requested_datasource_id
+            or candidate.datasource_id == retrieval.requested_datasource_id
+        )
+    ]
+    physical_names = sorted({
+        f"{candidate.data_object_name or candidate.data_object_id}.{candidate.field_path}"
+        for candidate in physical
+    })
+    if physical_names:
+        hint = (
+            f"扫描字段 {', '.join(physical_names[:3])} 的名称可能对应“{term}”，"
+            "但字段名翻译不能替代已确认的业务维度；请确认并发布该字段的业务定义。"
+        )
+    else:
+        hint = (
+            f"当前已发布数据中没有找到可确认的{label}“{term}”。"
+            "如果该数据存在，请补充对应数据源或发布相应业务定义。"
+        )
     return ClarificationRequest(
         clarification_id=f"grounding_missing_{slot.value}_{_slug(term)}",
         field=f"{slot.value}:{term}",
-        question=(
-            f"当前已发布数据中没有找到可确认的{label}“{term}”。"
-            "如果该数据存在，请补充对应数据源或发布相应业务定义。"
-        ),
+        question=hint,
     )
 
 
